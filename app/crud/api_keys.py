@@ -166,10 +166,13 @@ def get_api_keys_paginated(
     total = db.execute(total_query).scalar_one()
     logger.info(f"Calculated total active API keys (with filters): {total}")
 
-    paginated_query = query.order_by(
-        case((models.ApiKey.status == "active", 0), else_=1),
-        models.ApiKey.id.asc()
-    ).offset(skip).limit(limit)
+    paginated_query = (
+        query.order_by(
+            case((models.ApiKey.status == "active", 0), else_=1), models.ApiKey.id.asc()
+        )
+        .offset(skip)
+        .limit(limit)
+    )
     items = db.execute(paginated_query).scalars().all()
     logger.info(f"Retrieved {len(items)} API keys for page {page} (with filters).")
 

@@ -19,7 +19,7 @@ class RestfulClient:
             response = requests.request(
                 method, url, params=params, data=data, json=json_data, headers=_headers
             )
-            response.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
+            response.raise_for_status()
             return response
         except requests.exceptions.HTTPError as http_err:
             print(

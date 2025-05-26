@@ -35,16 +35,11 @@ async def init_redis():
     redis_url = settings.REDIS_URL
     redis_password = settings.REDIS_PASSWORD
     try:
-        redis_params = {
-            "encoding": "utf-8",
-            "decode_responses": True
-        }
+        redis_params = {"encoding": "utf-8", "decode_responses": True}
         if redis_password:
             redis_params["password"] = redis_password
 
-        redis_client = aioredis.from_url(
-            redis_url, **redis_params
-        )
+        redis_client = aioredis.from_url(redis_url, **redis_params)
         await redis_client.ping()
         logger.info("Redis client initialized successfully and ping successful.")
     except Exception as e:

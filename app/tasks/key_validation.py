@@ -24,8 +24,9 @@ def _get_config_value_with_default(
     if config_str:
         try:
             converted_value = value_type(config_str)
-            if (value_type is int and converted_value < 0) or \
-               (value_type is float and converted_value <= 0):
+            if (value_type is int and converted_value < 0) or (
+                value_type is float and converted_value <= 0
+            ):
                 logger.warning(
                     f"Invalid {key.replace('_', ' ')} '{config_str}' from config, using default {default_value}."
                 )
@@ -75,8 +76,13 @@ def validate_api_key_task(session_factory: Callable[[], Session]):
             return
 
         target_url = config.value.rstrip("/")
-        model_name = crud_config.get_config_value(db, "key_validation_model_name") or "gemini-1.5-flash"
-        validation_endpoint = f"{target_url}/models/{model_name}:streamGenerateContent?alt=sse"
+        model_name = (
+            crud_config.get_config_value(db, "key_validation_model_name")
+            or "gemini-1.5-flash"
+        )
+        validation_endpoint = (
+            f"{target_url}/models/{model_name}:streamGenerateContent?alt=sse"
+        )
 
         validated_count = 0
         invalidated_count = 0
@@ -86,38 +92,38 @@ def validate_api_key_task(session_factory: Callable[[], Session]):
                 continue
 
             try:
-                api_key_header_name = crud_config.get_config_value(db, "api_key_header_name") or "x-api-key"
-                api_key_query_param_name = crud_config.get_config_value(db, "api_key_query_param_name") or "x-goog-api-key"
-
                 headers = {
-                    'accept': '*/*',
-                    'accept-language': 'zh-CN',
-                    'content-type': 'application/json',
-                    'priority': 'u=1, i',
-                    'sec-ch-ua': '"Not:A-Brand";v="24", "Chromium";v="134"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"macOS"',
-                    'sec-fetch-dest': 'empty',
-                    'sec-fetch-mode': 'cors',
-                    'sec-fetch-site': 'cross-site',
-                    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) CherryStudio/1.3.9 Chrome/134.0.6998.205 Electron/35.2.2 Safari/537.36',
-                    'x-goog-api-client': 'google-genai-sdk/0.13.0 gl-node/web',
-                    'x-goog-api-key': key.key_value,
+                    "accept": "*/*",
+                    "accept-language": "zh-CN",
+                    "content-type": "application/json",
+                    "priority": "u=1, i",
+                    "sec-ch-ua": '"Not:A-Brand";v="24", "Chromium";v="134"',
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"macOS"',
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "cross-site",
+                    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) CherryStudio/1.3.9 Chrome/134.0.6998.205 Electron/35.2.2 Safari/537.36",
+                    "x-goog-api-client": "google-genai-sdk/0.13.0 gl-node/web",
+                    "x-goog-api-key": key.key_value,
                 }
                 json_data = {
-                    'contents': [{'parts': [{'text': 'hi'}], 'role': 'user'}],
-                    'generationConfig': {'maxOutputTokens': 1, 'thinkingConfig': {'includeThoughts': False, 'thinkingBudget': 0}},
+                    "contents": [{"parts": [{"text": "hi"}], "role": "user"}],
+                    "generationConfig": {
+                        "maxOutputTokens": 1,
+                        "thinkingConfig": {
+                            "includeThoughts": False,
+                            "thinkingBudget": 0,
+                        },
+                    },
                 }
 
-                response = task_httpx_client.post(validation_endpoint, headers=headers, json=json_data)
+                response = task_httpx_client.post(
+                    validation_endpoint, headers=headers, json=json_data
+                )
                 is_valid = response.status_code == 200 and "text" in response.text
 
-                update_key_status_based_on_response(
-                    db,
-                    key,
-                    is_valid,
-                    max_failed_count
-                )
+                update_key_status_based_on_response(db, key, is_valid, max_failed_count)
 
                 if is_valid:
                     validated_count += 1
@@ -174,75 +180,135 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
 
         config = crud_config.get_config_by_key(db, "target_api_url")
         if not config or not config.value:
-            logger.warning("Target AI API URL is not configured, skipping key validation.")
+            logger.warning(
+                "Target AI API URL is not configured, skipping key validation."
+            )
             for key_id in key_ids:
                 api_key_obj = crud_api_keys.get_api_key(db, key_id)
                 key_value = api_key_obj.key_value if api_key_obj else f"ID:{key_id}"
-                results.append({"key_value": key_value, "status": "error", "message": "Target API URL not configured."})
+                results.append(
+                    {
+                        "key_value": key_value,
+                        "status": "error",
+                        "message": "Target API URL not configured.",
+                    }
+                )
             return results
 
         target_url = config.value.rstrip("/")
-        model_name = crud_config.get_config_value(db, "key_validation_model_name") or "gemini-1.5-flash"
-        validation_endpoint = f"{target_url}/models/{model_name}:streamGenerateContent?alt=sse"
+        model_name = (
+            crud_config.get_config_value(db, "key_validation_model_name")
+            or "gemini-1.5-flash"
+        )
+        validation_endpoint = (
+            f"{target_url}/models/{model_name}:streamGenerateContent?alt=sse"
+        )
 
         for key_id in key_ids:
             api_key_obj = crud_api_keys.get_api_key(db, key_id)
             if not api_key_obj:
-                results.append({"key_value": f"ID:{key_id}", "status": "error", "message": "Key not found in DB."})
+                results.append(
+                    {
+                        "key_value": f"ID:{key_id}",
+                        "status": "error",
+                        "message": "Key not found in DB.",
+                    }
+                )
                 continue
 
             try:
                 headers = {
-                    'accept': '*/*',
-                    'accept-language': 'zh-CN',
-                    'content-type': 'application/json',
-                    'priority': 'u=1, i',
-                    'sec-ch-ua': '"Not:A-Brand";v="24", "Chromium";v="134"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"macOS"',
-                    'sec-fetch-dest': 'empty',
-                    'sec-fetch-mode': 'cors',
-                    'sec-fetch-site': 'cross-site',
-                    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) CherryStudio/1.3.9 Chrome/134.0.6998.205 Electron/35.2.2 Safari/537.36',
-                    'x-goog-api-client': 'google-genai-sdk/0.13.0 gl-node/web',
-                    'x-goog-api-key': api_key_obj.key_value,
+                    "accept": "*/*",
+                    "accept-language": "zh-CN",
+                    "content-type": "application/json",
+                    "priority": "u=1, i",
+                    "sec-ch-ua": '"Not:A-Brand";v="24", "Chromium";v="134"',
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"macOS"',
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "cross-site",
+                    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) CherryStudio/1.3.9 Chrome/134.0.6998.205 Electron/35.2.2 Safari/537.36",
+                    "x-goog-api-client": "google-genai-sdk/0.13.0 gl-node/web",
+                    "x-goog-api-key": api_key_obj.key_value,
                 }
                 json_data = {
-                    'contents': [{'parts': [{'text': 'hi'}], 'role': 'user'}],
-                    'generationConfig': {'maxOutputTokens': 1, 'thinkingConfig': {'includeThoughts': False, 'thinkingBudget': 0}},
+                    "contents": [{"parts": [{"text": "hi"}], "role": "user"}],
+                    "generationConfig": {
+                        "maxOutputTokens": 1,
+                        "thinkingConfig": {
+                            "includeThoughts": False,
+                            "thinkingBudget": 0,
+                        },
+                    },
                 }
 
-                response = task_httpx_client.post(validation_endpoint, headers=headers, json=json_data)
+                response = task_httpx_client.post(
+                    validation_endpoint, headers=headers, json=json_data
+                )
                 is_valid = response.status_code == 200 and "text" in response.text
-                
+
                 status_str = "valid" if is_valid else "invalid"
-                message_str = "Key is valid." if is_valid else f"Validation failed: {response.status_code} - {response.text}"
-                
-                results.append({"key_value": api_key_obj.key_value, "status": status_str, "message": message_str})
+                message_str = (
+                    "Key is valid."
+                    if is_valid
+                    else f"Validation failed: {response.status_code} - {response.text}"
+                )
+
+                results.append(
+                    {
+                        "key_value": api_key_obj.key_value,
+                        "status": status_str,
+                        "message": message_str,
+                    }
+                )
 
             except httpx.RequestError as exc:
                 logger.error(
                     f"Error validating API Key ID {api_key_obj.id} ({api_key_obj.key_value[:8]}...): {exc}"
                 )
-                results.append({"key_value": api_key_obj.key_value, "status": "error", "message": f"Network error: {exc}"})
+                results.append(
+                    {
+                        "key_value": api_key_obj.key_value,
+                        "status": "error",
+                        "message": f"Network error: {exc}",
+                    }
+                )
             except Exception as e:
                 logger.error(
                     f"Unexpected error during validation for API Key ID {api_key_obj.id} ({api_key_obj.key_value[:8]}...): {e}"
                 )
-                results.append({"key_value": api_key_obj.key_value, "status": "error", "message": f"Unexpected error: {e}"})
+                results.append(
+                    {
+                        "key_value": api_key_obj.key_value,
+                        "status": "error",
+                        "message": f"Unexpected error: {e}",
+                    }
+                )
     except Exception as e:
-        logger.error(f"Error during bulk API Key validation task setup: {e}", exc_info=True)
+        logger.error(
+            f"Error during bulk API Key validation task setup: {e}", exc_info=True
+        )
         # If an error occurs during setup, ensure all requested keys are marked with an error
         for key_id in key_ids:
             # Avoid adding duplicates if some results were already processed
-            if not any(r.get("key_value") == crud_api_keys.get_api_key(db, key_id).key_value for r in results):
+            if not any(
+                r.get("key_value") == crud_api_keys.get_api_key(db, key_id).key_value
+                for r in results
+            ):
                 api_key_obj = crud_api_keys.get_api_key(db, key_id)
                 key_value = api_key_obj.key_value if api_key_obj else f"ID:{key_id}"
-                results.append({"key_value": key_value, "status": "error", "message": f"Setup error: {e}"})
+                results.append(
+                    {
+                        "key_value": key_value,
+                        "status": "error",
+                        "message": f"Setup error: {e}",
+                    }
+                )
     finally:
         if task_httpx_client:
             task_httpx_client.close()
             logger.info("Bulk validation httpx client closed.")
-    
+
     logger.info(f"Bulk API Key validation finished. Processed {len(results)} keys.")
     return results

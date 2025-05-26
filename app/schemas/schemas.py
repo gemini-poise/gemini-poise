@@ -6,8 +6,12 @@ from pydantic import BaseModel, Field
 
 # 定义分页请求 Schema
 class PaginationParams(BaseModel):
-    page: int = Field(1, ge=1, description="Page number (starting from 1)")  # 页码，默认为 1，最小为 1
-    page_size: int = Field(50, ge=1, le=100, description="Items per page (max 100)")  # 每页数量，默认为 50，最小为 1，最大为 100
+    page: int = Field(
+        1, ge=1, description="Page number (starting from 1)"
+    )  # 页码，默认为 1，最小为 1
+    page_size: int = Field(
+        50, ge=1, le=100, description="Items per page (max 100)"
+    )  # 每页数量，默认为 50，最小为 1，最大为 100
 
 
 # 定义分页响应 Schema (通用)
@@ -105,8 +109,12 @@ class ApiKeyPaginationParams(BaseModel):
     page_size: int = Field(50, ge=1, le=100, description="Items per page (max 100)")
     # 添加筛选参数
     search_key: Optional[str] = Field(None, description="Search by key value")
-    min_failed_count: Optional[int] = Field(None, ge=0, description="Filter by minimum failed count")
-    status: Optional[str] = Field(None, description="Filter by status (active, inactive, exhausted)")
+    min_failed_count: Optional[int] = Field(
+        None, ge=0, description="Filter by minimum failed count"
+    )
+    status: Optional[str] = Field(
+        None, description="Filter by status (active, inactive, exhausted)"
+    )
 
 
 # 定义 API Key 分页响应 Schema
@@ -116,9 +124,15 @@ class PaginatedApiKeyResponse(PaginatedResponse[ApiKey]):
 
 # --- API Call Statistics Schemas ---
 class ApiCallStatistics(BaseModel):
-    calls_last_1_minute: int = Field(0, description="Number of API calls in the last 1 minute")
-    calls_last_1_hour: int = Field(0, description="Number of API calls in the last 1 hour")
-    calls_last_24_hours: int = Field(0, description="Number of API calls in the last 24 hours")
+    calls_last_1_minute: int = Field(
+        0, description="Number of API calls in the last 1 minute"
+    )
+    calls_last_1_hour: int = Field(
+        0, description="Number of API calls in the last 1 hour"
+    )
+    calls_last_24_hours: int = Field(
+        0, description="Number of API calls in the last 24 hours"
+    )
     monthly_usage: int = Field(0, description="Total usage count for the current month")
 
 
@@ -139,6 +153,7 @@ class LoginRequest(BaseModel):
 
 
 # --- Config Schemas ---
+
 
 # 定义 Schema 用于返回单个配置项 (包含所有字段)
 class ConfigItem(BaseModel):
@@ -175,6 +190,7 @@ class ConfigBulkSaveRequestItem(BaseModel):
 # 定义 Schema 用于批量保存配置项的请求体
 class ConfigBulkSaveRequest(BaseModel):
     items: List[ConfigBulkSaveRequestItem]
+
 
 # 定义 Schema 用于返回配置项列表 (可选，直接使用 List[ConfigItem] 也可以)
 # class ConfigListResponse(BaseModel):

@@ -4,10 +4,21 @@ from typing import List, Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ... import crud, schemas
-from ...core.security import (user_dependency, db_dependency)
-from ...schemas.schemas import (ApiKey, ApiKeyCreate, ApiKeyUpdate, ApiKeyBulkAddRequest, ApiKeyAddListRequest,
-                                ApiKeyBulkAddResponse, ApiKeyPaginationParams, PaginatedApiKeyResponse,
-                                ApiCallStatistics, ApiKeyBulkCheckRequest, ApiKeyBulkCheckResponse, ApiKeyCheckResult)
+from ...core.security import user_dependency, db_dependency
+from ...schemas.schemas import (
+    ApiKey,
+    ApiKeyCreate,
+    ApiKeyUpdate,
+    ApiKeyBulkAddRequest,
+    ApiKeyAddListRequest,
+    ApiKeyBulkAddResponse,
+    ApiKeyPaginationParams,
+    PaginatedApiKeyResponse,
+    ApiCallStatistics,
+    ApiKeyBulkCheckRequest,
+    ApiKeyBulkCheckResponse,
+    ApiKeyCheckResult,
+)
 from ...tasks.key_validation import check_keys_validity
 
 router = APIRouter(prefix="/api_keys", tags=["API Keys"])
@@ -15,9 +26,9 @@ router = APIRouter(prefix="/api_keys", tags=["API Keys"])
 
 @router.get("/paginated", response_model=PaginatedApiKeyResponse)
 async def list_api_keys_paginated(
-        pagination_params: Annotated[ApiKeyPaginationParams, Depends()],
-        db: db_dependency,
-        current_user: user_dependency
+    pagination_params: Annotated[ApiKeyPaginationParams, Depends()],
+    db: db_dependency,
+    current_user: user_dependency,
 ):
     """
     获取分页后的 API Key 列表。需要登录。
@@ -30,22 +41,17 @@ async def list_api_keys_paginated(
         page_size=pagination_params.page_size,
         search_key=pagination_params.search_key,
         min_failed_count=pagination_params.min_failed_count,
-        status=pagination_params.status
+        status=pagination_params.status,
     )
 
     paginated_items = [schemas.ApiKey.model_validate(item) for item in items]
 
-    return PaginatedApiKeyResponse(
-        total=total,
-        items=paginated_items
-    )
+    return PaginatedApiKeyResponse(total=total, items=paginated_items)
 
 
 @router.post("/", response_model=ApiKey)
 async def create_api_key(
-        api_key: ApiKeyCreate,
-        db: db_dependency,
-        current_user: user_dependency
+    api_key: ApiKeyCreate, db: db_dependency, current_user: user_dependency
 ):
     """
     创建一个新的 API Key。需要登录。
@@ -65,10 +71,7 @@ async def create_api_key(
 
 @router.get("/", response_model=List[ApiKey])
 async def list_api_keys(
-        db: db_dependency,
-        current_user: user_dependency,
-        skip: int = 0,
-        limit: int = 100
+    db: db_dependency, current_user: user_dependency, skip: int = 0, limit: int = 100
 ):
     """
     获取 API Key 列表。需要登录。
@@ -81,9 +84,7 @@ async def list_api_keys(
 
 @router.get("/{api_key_id}", response_model=ApiKey)
 async def get_api_key(
-        api_key_id: int,
-        db: db_dependency,
-        current_user: user_dependency
+    api_key_id: int, db: db_dependency, current_user: user_dependency
 ):
     """
     根据 ID 获取单个 API Key。需要登录。
@@ -98,17 +99,19 @@ async def get_api_key(
 
 @router.put("/{api_key_id}", response_model=ApiKey)
 async def update_api_key(
-        api_key_id: int,
-        api_key_update: ApiKeyUpdate,
-        db: db_dependency,
-        current_user: user_dependency
+    api_key_id: int,
+    api_key_update: ApiKeyUpdate,
+    db: db_dependency,
+    current_user: user_dependency,
 ):
     """
     更新 API Key 信息。需要登录。
     """
     # 只有登录用户才能执行此操作
     _ = current_user
-    db_api_key = crud.api_keys.update_api_key(db, api_key_id=api_key_id, api_key_update=api_key_update)
+    db_api_key = crud.api_keys.update_api_key(
+        db, api_key_id=api_key_id, api_key_update=api_key_update
+    )
     if db_api_key is None:
         raise HTTPException(status_code=404, detail="API Key not found")
     return db_api_key
@@ -116,9 +119,7 @@ async def update_api_key(
 
 @router.delete("/bulk-delete", status_code=status.HTTP_200_OK)
 async def bulk_delete_api_keys(
-        api_key_ids: List[int],
-        db: db_dependency,
-        current_user: user_dependency
+    api_key_ids: List[int], db: db_dependency, current_user: user_dependency
 ):
     """
     批量删除 API Key。需要登录。
@@ -133,9 +134,7 @@ async def bulk_delete_api_keys(
 
 @router.delete("/{api_key_id}")
 async def delete_api_key(
-        api_key_id: int,
-        db: db_dependency,
-        current_user: user_dependency
+    api_key_id: int, db: db_dependency, current_user: user_dependency
 ):
     """
     删除 API Key。需要登录。
@@ -148,11 +147,11 @@ async def delete_api_key(
     return {"detail": "API Key deleted"}
 
 
-@router.post("/bulk-add", response_model=ApiKeyBulkAddResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/bulk-add", response_model=ApiKeyBulkAddResponse, status_code=status.HTTP_200_OK
+)
 async def bulk_add_api_keys(
-        request_data: ApiKeyBulkAddRequest,
-        db: db_dependency,
-        current_user: user_dependency
+    request_data: ApiKeyBulkAddRequest, db: db_dependency, current_user: user_dependency
 ):
     """
     批量添加 API Key。支持逗号或换行符分隔。如果 Key 存在则跳过。需要登录。
@@ -160,7 +159,7 @@ async def bulk_add_api_keys(
     # 只有登录用户才能执行此操作
     _ = current_user
 
-    key_values = re.split(r'[,\n]+', request_data.keys_string)
+    key_values = re.split(r"[,\n]+", request_data.keys_string)
     key_values = [key.strip() for key in key_values if key.strip()]
 
     total_processed = len(key_values)
@@ -168,36 +167,41 @@ async def bulk_add_api_keys(
     db.commit()
 
     return ApiKeyBulkAddResponse(
-        total_processed=total_processed,
-        total_added=total_added
+        total_processed=total_processed, total_added=total_added
     )
 
 
-@router.post("/bulk-check", response_model=ApiKeyBulkCheckResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/bulk-check",
+    response_model=ApiKeyBulkCheckResponse,
+    status_code=status.HTTP_200_OK,
+)
 async def bulk_check_api_keys(
-        request_data: ApiKeyBulkCheckRequest,
-        db: db_dependency,
-        current_user: user_dependency
+    request_data: ApiKeyBulkCheckRequest,
+    db: db_dependency,
+    current_user: user_dependency,
 ):
     """
     批量检测 API Key 的有效性。需要登录。
     """
     _ = current_user
-    
+
     # 调用 key_validation 模块中的函数进行实际检测
     check_results = check_keys_validity(db, request_data.key_ids)
-    
+
     # 将检测结果转换为 ApiKeyCheckResult 列表
     results = [ApiKeyCheckResult(**res) for res in check_results]
 
     return ApiKeyBulkCheckResponse(results=results)
 
 
-@router.post("/check/{api_key_id}", response_model=ApiKeyCheckResult, status_code=status.HTTP_200_OK)
+@router.post(
+    "/check/{api_key_id}",
+    response_model=ApiKeyCheckResult,
+    status_code=status.HTTP_200_OK,
+)
 async def check_single_api_key(
-        api_key_id: int,
-        db: db_dependency,
-        current_user: user_dependency
+    api_key_id: int, db: db_dependency, current_user: user_dependency
 ):
     """
     检测单个 API Key 的有效性。需要登录。
@@ -208,16 +212,15 @@ async def check_single_api_key(
     check_results = check_keys_validity(db, [api_key_id])
 
     if not check_results:
-        raise HTTPException(status_code=404, detail="API Key not found or check failed.")
+        raise HTTPException(
+            status_code=404, detail="API Key not found or check failed."
+        )
 
     return ApiKeyCheckResult(**check_results[0])
 
 
 @router.get("/statistics/calls", response_model=ApiCallStatistics)
-async def get_api_call_statistics(
-        db: db_dependency,
-        current_user: user_dependency
-):
+async def get_api_call_statistics(db: db_dependency, current_user: user_dependency):
     """
     获取 API 调用统计数据。需要登录。
     """
@@ -226,11 +229,11 @@ async def get_api_call_statistics(
     return statistics
 
 
-@router.post("/add-list", response_model=ApiKeyBulkAddResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/add-list", response_model=ApiKeyBulkAddResponse, status_code=status.HTTP_200_OK
+)
 async def add_api_keys_from_list(
-        request_data: ApiKeyAddListRequest,
-        db: db_dependency,
-        current_user: user_dependency
+    request_data: ApiKeyAddListRequest, db: db_dependency, current_user: user_dependency
 ):
     """
     批量添加 API Key (列表)。接收 Key 字符串列表。如果 Key 存在则跳过。需要登录。
@@ -243,6 +246,5 @@ async def add_api_keys_from_list(
     db.commit()
 
     return ApiKeyBulkAddResponse(
-        total_processed=total_processed,
-        total_added=total_added
+        total_processed=total_processed, total_added=total_added
     )
