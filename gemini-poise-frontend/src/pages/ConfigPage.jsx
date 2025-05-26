@@ -10,7 +10,7 @@ const configDefinitions = [
     { "k": "key_validation_interval_seconds", "l": "Key Validation Interval (seconds)", "required": true, "type": "number" },
     { "k": "key_validation_max_failed_count", "l": "Key Validation Max Failed Count", "required": true, "type": "number" },
     { "k": "key_validation_timeout_seconds", "l": "Key Validation Timeout (seconds)", "required": true, "type": "number" },
-    { "k": "key_validation_model_name", "l": "Key Validation model name", "required": false, "type": "text" },
+    { "k": "key_validation_model_name", "l": "Key Validation Model Name", "required": false, "type": "text" },
     // { k: "another_key", l: "Another Label", required: false, type: 'text' },
 ];
 
