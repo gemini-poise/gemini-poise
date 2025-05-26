@@ -5,6 +5,7 @@ services:
       - "8000:8000"
     volumes:
       - ./.env:/app/.env
+      - ./data/:/data
     # environment:
     #   - DATABASE_URL=your_production_db_url
     #   - API_KEY=your_production_api_key
