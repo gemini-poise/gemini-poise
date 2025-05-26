@@ -1,0 +1,24 @@
+services:
+  backend:
+    image: alterem/gemini-poise
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./.env:/app/.env
+    # environment:
+    #   - DATABASE_URL=your_production_db_url
+    #   - API_KEY=your_production_api_key
+    depends_on:
+      - redis
+
+  frontend:
+    ports:
+      - "8001:80"
+
+  redis:
+    image: redis:latest
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
