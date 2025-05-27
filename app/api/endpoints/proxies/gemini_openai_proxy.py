@@ -7,6 +7,7 @@ OpenAI 到 Gemini 代理服务模块
 支持的功能：
 - 聊天补全 (/chat/completions)
 - 图像生成 (/images/generations)
+- 图像编辑 (/images/edits)
 - 模型列表 (/models)
 """
 
@@ -846,6 +847,243 @@ async def openai_image_generations(request: Request, db: db_dependency):
         logger.error(f"处理图像生成请求时出现错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"处理图像生成请求时出错: {str(e)}")
 
+class ImageEditRequestTransformer:
+    """图像编辑请求转换器"""
+    
+    @staticmethod
+    def transform_openai_to_gemini_image_edit_request(openai_request: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+        """
+        将 OpenAI 图像编辑请求转换为 Gemini Imagen 格式
+        
+        OpenAI 图像编辑 API 参数:
+        - image: 要编辑的图像文件 (PNG 格式，最大 4MB)
+        - mask: 掩码图像文件 (PNG 格式，最大 4MB，可选)
+        - prompt: 描述编辑内容的文本 (最大 1000 字符)
+        - n: 生成图像数量 (1-10，默认 1)
+        - size: 图像尺寸 ("256x256", "512x512", "1024x1024"，默认 "1024x1024")
+        - response_format: 响应格式 ("url" 或 "b64_json"，默认 "url")
+        - user: 用户标识符 (可选)
+        """
+        
+        prompt = openai_request.get("prompt", "")
+        if not prompt:
+            raise ProxyError(400, "prompt 参数是必需的")
+        
+        image_data = openai_request.get("image")
+        if not image_data:
+            raise ProxyError(400, "image 参数是必需的")
+        
+        mask_data = openai_request.get("mask")
+
+        size = openai_request.get("size", "1024x1024")
+        try:
+            width, height = ImageRequestTransformer.parse_size(size)
+        except ValueError as e:
+            raise ProxyError(400, f"无效的尺寸格式: {e}")
+        
+        enhanced_prompt = f"根据以下描述编辑或改进图像: {prompt}"
+        
+        if mask_data:
+            enhanced_prompt += " (仅编辑掩码指定的区域)"
+        
+        if image_data:
+            enhanced_prompt = f"基于提供的图像，{prompt}。保持原图的整体风格和构图，只改进指定的部分。"
+        
+        contents = [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": enhanced_prompt}
+                ]
+            }
+        ]
+        
+        if image_data:
+            if image_data.startswith('data:image/'):
+                try:
+                    mime_type = image_data.split(';')[0].replace('data:', '')
+                    data = image_data.split('base64,')[1]
+                    contents[0]["parts"].append({
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": data
+                        }
+                    })
+                except (IndexError, ValueError):
+                    raise ProxyError(400, "无效的图像数据格式")
+            else:
+                contents[0]["parts"].append({
+                    "inline_data": {
+                        "mime_type": "image/png",
+                        "data": image_data
+                    }
+                })
+        
+        gemini_request = {
+            "contents": contents,
+            "generationConfig": {
+                "temperature": 0.8,
+                "topP": 0.95,
+                "topK": 40,
+                "maxOutputTokens": 4096
+            }
+        }
+        
+        model = openai_request.get("model", "gemini-2.0-flash-exp-image-generation")
+        
+        if "image" not in model.lower() and "vision" not in model.lower():
+            model = "gemini-2.0-flash-exp-image-generation"
+        
+        return gemini_request, model
+
+
+@router.api_route("/images/edits", methods=["POST"])
+async def openai_image_edits(request: Request, db: db_dependency):
+    """OpenAI 图像编辑 API 端点，将请求转换为 Gemini 格式并返回转换后的响应"""
+    handler = ProxyHandler(db)
+    
+    try:
+        logger.info("收到 OpenAI 图像编辑请求")
+        
+        target_url, api_key_obj = await handler._setup_authentication(request)
+        logger.info(f"目标 Gemini API URL: {target_url}")
+        
+        content_type = request.headers.get("content-type", "")
+        
+        if "multipart/form-data" in content_type:
+            import base64
+            
+            form_data = await request.form()
+            
+            openai_request = {}
+            
+            if "prompt" in form_data:
+                openai_request["prompt"] = form_data["prompt"]
+            if "model" in form_data:
+                openai_request["model"] = form_data["model"]
+            if "n" in form_data:
+                try:
+                    openai_request["n"] = int(form_data["n"])
+                except ValueError:
+                    openai_request["n"] = 1
+            if "size" in form_data:
+                openai_request["size"] = form_data["size"]
+            if "response_format" in form_data:
+                openai_request["response_format"] = form_data["response_format"]
+            
+            image_field_names = ["image", "image[]"]
+            for field_name in image_field_names:
+                if field_name in form_data:
+                    image_file = form_data[field_name]
+                    if hasattr(image_file, 'read'):
+                        image_data = await image_file.read()
+                        image_base64 = base64.b64encode(image_data).decode('utf-8')
+                        openai_request["image"] = image_base64
+                    else:
+                        openai_request["image"] = str(image_file)
+                    break
+            
+            mask_field_names = ["mask", "mask[]"]
+            for field_name in mask_field_names:
+                if field_name in form_data:
+                    mask_file = form_data[field_name]
+                    if hasattr(mask_file, 'read'):
+                        mask_data = await mask_file.read()
+                        mask_base64 = base64.b64encode(mask_data).decode('utf-8')
+                        openai_request["mask"] = mask_base64
+                    else:
+                        openai_request["mask"] = str(mask_file)
+                    break
+        else:
+            body = await request.body()
+            try:
+                openai_request = json.loads(body)
+            except json.JSONDecodeError:
+                raise ProxyError(400, "请求体不是有效的 JSON 格式")
+        
+        try:
+            gemini_request, model = ImageEditRequestTransformer.transform_openai_to_gemini_image_edit_request(openai_request)
+            n = openai_request.get("n", 1)
+            
+            full_target_url = f"{target_url}/models/{model}:generateContent"
+            logger.info(f"Gemini 图像编辑目标 URL: {full_target_url}")
+            
+            headers = {
+                "Content-Type": "application/json",
+                "x-goog-api-key": api_key_obj.key_value,
+            }
+            
+            response = await httpx_client.request(
+                method="POST",
+                url=full_target_url,
+                headers=headers,
+                json=gemini_request
+            )
+            
+            success = 200 <= response.status_code < 300
+            handler.key_manager.update_key_usage(db, api_key_obj.id, success)
+            
+            if not success:
+                error_detail = "图像编辑请求失败"
+                try:
+                    error_text = response.text
+                    error_detail = f"图像编辑请求失败: {error_text}"
+                except Exception:
+                    pass
+                raise ProxyError(response.status_code, error_detail)
+            
+            try:
+                gemini_response = response.json()
+                
+                response_text = ""
+                if gemini_response.get("candidates"):
+                    candidate = gemini_response["candidates"][0]
+                    if candidate.get("content", {}).get("parts"):
+                        for part in candidate["content"]["parts"]:
+                            if part.get("text"):
+                                response_text += part["text"]
+                
+                openai_response = {
+                    "created": int(time.time()),
+                    "data": [{
+                        "url": "",
+                        "b64_json": "",
+                        "description": response_text or "图像编辑请求已处理"
+                    } for _ in range(n)]
+                }
+                
+                return Response(
+                    content=json.dumps(openai_response),
+                    status_code=200,
+                    media_type="application/json",
+                )
+                
+            except Exception as e:
+                logger.error(f"解析图像编辑响应时出错: {e}")
+                raise ProxyError(500, f"解析图像编辑响应失败: {str(e)}")
+        
+        except ProxyError:
+            raise
+        except Exception as e:
+            logger.error(f"图像编辑请求处理失败: {e}", exc_info=True)
+            
+            try:
+                handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            except Exception as update_error:
+                logger.error(f"更新密钥使用状态失败: {update_error}")
+            
+            raise ProxyError(500, f"图像编辑处理失败: {str(e)}", e)
+    
+    except ProxyError as e:
+        if 'api_key_obj' in locals():
+            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+        logger.error(f"代理错误: {e.detail}")
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+    except Exception as e:
+        if 'api_key_obj' in locals():
+            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+        logger.error(f"未预期的错误: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="内部服务器错误")
 
 class ModelListTransformer:
     """模型列表转换器"""
