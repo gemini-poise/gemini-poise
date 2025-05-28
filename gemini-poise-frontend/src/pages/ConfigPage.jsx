@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Form, Input, Button, Card, Typography, App } from 'antd';
+import { Form, Input, Button, Card, Typography, App, Watermark } from 'antd';
 import { useConfigManagement } from '../hooks/useConfigManagement';
 
 const { Title } = Typography;
@@ -28,40 +28,42 @@ const ConfigPage = () => {
 
     return (
         <App> {/* App context is still needed here */}
-            <div className="flex justify-center">
-                <Card className="w-full max-w-xl" hoverable>
-                    <Title level={2} className="text-center">Configuration</Title>
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        name="config"
-                        onFinish={onFinish}
-                        autoComplete="off"
-                        disabled={loading}
-                    >
-                        {configDefinitions.map(item => (
-                            <Form.Item
-                                key={item.k}
-                                label={item.l}
-                                name={item.k}
-                                rules={[{ required: item.required, message: `Please input the ${item.l}!` }]}
-                            >
-                                {item.type === 'password' ? (
-                                    <Input.Password />
-                                ) : (
-                                    <Input type={item.type} showCount />
-                                )}
+            <Watermark content="Gemini Poise Config">
+                <div className="flex justify-center">
+                    <Card className="w-full max-w-xl" hoverable>
+                        <Title level={2} className="text-center">Configuration</Title>
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            name="config"
+                            onFinish={onFinish}
+                            autoComplete="off"
+                            disabled={loading}
+                        >
+                            {configDefinitions.map(item => (
+                                <Form.Item
+                                    key={item.k}
+                                    label={item.l}
+                                    name={item.k}
+                                    rules={[{ required: item.required, message: `Please input the ${item.l}!` }]}
+                                >
+                                    {item.type === 'password' ? (
+                                        <Input.Password />
+                                    ) : (
+                                        <Input type={item.type} showCount />
+                                    )}
+                                </Form.Item>
+                            ))}
+                            <Form.Item>
+                                <Button type="primary" htmlType="submit" className="w-full"
+                                    loading={saving}>
+                                    Save Configuration
+                                </Button>
                             </Form.Item>
-                        ))}
-                        <Form.Item>
-                            <Button type="primary" htmlType="submit" className="w-full"
-                                loading={saving}>
-                                Save Configuration
-                            </Button>
-                        </Form.Item>
-                    </Form>
-                </Card>
-            </div>
+                        </Form>
+                    </Card>
+                </div>
+            </Watermark>
         </App>
     );
 };
