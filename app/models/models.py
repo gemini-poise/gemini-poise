@@ -4,6 +4,7 @@ from sqlalchemy import (
     String,
     Boolean,
     DateTime,
+    TIMESTAMP,
     func,
     Text,
     ForeignKey,
@@ -45,3 +46,14 @@ class Config(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     updated_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     updated_by_user = relationship("User", uselist=False)
+
+
+class ApiCallLog(Base):
+    __tablename__ = "api_call_logs"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    api_key_id = Column(Integer, ForeignKey("api_keys.id"), nullable=False)
+    timestamp = Column(TIMESTAMP(timezone=True), nullable=False, index=True)
+    call_count = Column(Integer, default=0)
+
+    api_key = relationship("ApiKey", uselist=False)

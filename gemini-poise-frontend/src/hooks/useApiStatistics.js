@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getApiKeysPaginated, getApiCallStatistics } from '../api/api';
+import { getApiKeysPaginated, getApiCallStatistics, getApiCallLogsByMinute } from '../api/api';
 
 export const useKeyStatistics = () => {
   const [totalKeys, setTotalKeys] = useState(0);
@@ -67,4 +67,30 @@ export const useApiCallStatistics = () => {
   }, []);
 
   return { callsLast1Minute, callsLast1Hour, callsLast24Hours, monthlyUsage, loadingCalls, errorCalls };
+};
+
+export const useApiCallLogsByMinute = (hoursAgo = 24) => {
+  const [apiCallLogs, setApiCallLogs] = useState([]);
+  const [loadingApiCallLogs, setLoadingApiCallLogs] = useState(true);
+  const [errorApiCallLogs, setErrorApiCallLogs] = useState(null);
+
+  useEffect(() => {
+    const fetchApiCallLogs = async () => {
+      try {
+        setLoadingApiCallLogs(true);
+        const response = await getApiCallLogsByMinute(hoursAgo);
+        setApiCallLogs(response.data.logs);
+        setErrorApiCallLogs(null);
+      } catch (err) {
+        console.error("Error fetching API call logs by minute:", err);
+        setErrorApiCallLogs("Failed to load API call logs by minute.");
+      } finally {
+        setLoadingApiCallLogs(false);
+      }
+    };
+
+    fetchApiCallLogs();
+  }, [hoursAgo]);
+
+  return { apiCallLogs, loadingApiCallLogs, errorApiCallLogs };
 };

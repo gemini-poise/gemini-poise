@@ -18,6 +18,7 @@ from ...schemas.schemas import (
     ApiKeyBulkCheckRequest,
     ApiKeyBulkCheckResponse,
     ApiKeyCheckResult,
+    ApiCallLogResponse,
 )
 from ...tasks.key_validation import check_keys_validity
 
@@ -128,6 +129,7 @@ async def bulk_delete_api_keys(
     _ = current_user
 
     deleted_count = crud.api_keys.bulk_delete_api_keys(db, api_key_ids)
+    crud.api_keys.delete_api_call_logs_by_api_key_ids(db, api_key_ids)
 
     return {"detail": f"Successfully deleted {deleted_count} API Key(s)"}
 
@@ -144,6 +146,7 @@ async def delete_api_key(
     db_api_key = crud.api_keys.delete_api_key(db, api_key_id=api_key_id)
     if db_api_key is None:
         raise HTTPException(status_code=404, detail="API Key not found")
+    crud.api_keys.delete_api_call_logs_by_api_key_ids(db, [api_key_id])
     return {"detail": "API Key deleted"}
 
 
@@ -227,6 +230,18 @@ async def get_api_call_statistics(db: db_dependency, current_user: user_dependen
     _ = current_user
     statistics = crud.api_keys.get_api_call_statistics(db)
     return statistics
+
+
+@router.get("/statistics/calls_by_minute", response_model=ApiCallLogResponse)
+async def get_api_call_logs_by_minute_endpoint(
+    db: db_dependency, current_user: user_dependency, hours_ago: int = 24
+):
+    """
+    获取按分钟统计的 API 调用日志。需要登录。
+    """
+    _ = current_user
+    logs = crud.api_keys.get_api_call_logs_by_minute(db, hours_ago)
+    return ApiCallLogResponse(logs=logs)
 
 
 @router.post(

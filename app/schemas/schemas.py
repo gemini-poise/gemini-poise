@@ -136,6 +136,20 @@ class ApiCallStatistics(BaseModel):
     monthly_usage: int = Field(0, description="Total usage count for the current month")
 
 
+class ApiCallLogEntry(BaseModel):
+    api_key_id: int
+    key_value: str
+    timestamp: datetime
+    call_count: int
+
+    class Config:
+        from_attributes = True
+
+
+class ApiCallLogResponse(BaseModel):
+    logs: List[ApiCallLogEntry]
+
+
 # --- Token Schemas ---
 class Token(BaseModel):
     access_token: str

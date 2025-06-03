@@ -15,14 +15,13 @@ import json
 import logging
 import time
 from typing import Tuple, Dict, Any, Optional, List
-from contextlib import asynccontextmanager
 
 import httpx
 from starlette import status
 from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import StreamingResponse
 
-from .base_proxy import update_key_status_based_on_response
+from .base_proxy import update_key_status_based_on_response, record_api_call_log
 from .... import crud
 from ....core.config import settings
 from ....core.security import db_dependency
@@ -116,11 +115,11 @@ class KeyManager:
         return key_obj
     
     @staticmethod
-    def update_key_usage(db, key_id: int, success: bool) -> None:
+    def update_key_usage(db, api_key, success: bool) -> None:
         """更新密钥使用状态"""
         try:
-            crud.api_keys.update_api_key_usage(db, key_id, success)
-            db.commit()
+            max_failed_count = ConfigManager.get_max_failed_count(db)
+            update_key_status_based_on_response(db, api_key, success, max_failed_count)
         except Exception as e:
             logger.error(f"更新密钥使用状态失败: {e}")
 
@@ -500,7 +499,7 @@ class ProxyHandler:
         )
         
         success = 200 <= response.status_code < 300
-        self.key_manager.update_key_usage(self.db, api_key_obj.id, success)
+        self.key_manager.update_key_usage(self.db, api_key_obj, success)
         
         return response
     
@@ -578,7 +577,8 @@ async def openai_chat_completions(request: Request, db: db_dependency):
                 )
             
             success = 200 <= proxy_response.status_code < 300
-            handler.key_manager.update_key_usage(db, api_key_obj.id, success)
+            handler.key_manager.update_key_usage(db, api_key_obj, success)
+            record_api_call_log(db, api_key_obj.id)
             
             if proxy_response.status_code == 401 and "preview" in gemini_path:
                 logger.warning(f"预览版模型 {gemini_path} 认证失败 (401)，尝试使用标准模型")
@@ -601,7 +601,8 @@ async def openai_chat_completions(request: Request, db: db_dependency):
                 )
                 
                 success = 200 <= proxy_response.status_code < 300
-                handler.key_manager.update_key_usage(db, api_key_obj.id, success)
+                handler.key_manager.update_key_usage(db, api_key_obj, success)
+                record_api_call_log(db, api_key_obj.id)
             
             if not (200 <= proxy_response.status_code < 300):
                 logger.error(f"最终代理请求失败，状态码: {proxy_response.status_code}")
@@ -641,7 +642,7 @@ async def openai_chat_completions(request: Request, db: db_dependency):
         except httpx.RequestError as exc:
             logger.error(f"请求错误: {exc}", exc_info=True)
             if 'api_key_obj' in locals():
-                handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+                handler.key_manager.update_key_usage(db, api_key_obj, False)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Proxy request failed: {exc}",
@@ -657,12 +658,12 @@ async def openai_chat_completions(request: Request, db: db_dependency):
     
     except ProxyError as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         raise HTTPException(status_code=e.status_code, detail=e.detail)
     
     except Exception as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         logger.error(f"聊天补全请求处理时发生未预期错误: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -785,7 +786,8 @@ async def openai_image_generations(request: Request, db: db_dependency):
         )
         
         success = 200 <= response.status_code < 300
-        handler.key_manager.update_key_usage(db, api_key_obj.id, success)
+        handler.key_manager.update_key_usage(db, api_key_obj, success)
+        record_api_call_log(db, api_key_obj.id)
         
         if not success:
             error_detail = "图像生成请求失败"
@@ -838,12 +840,12 @@ async def openai_image_generations(request: Request, db: db_dependency):
     
     except ProxyError as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         raise HTTPException(status_code=e.status_code, detail=e.detail)
     
     except Exception as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         logger.error(f"处理图像生成请求时出现错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"处理图像生成请求时出错: {str(e)}")
 
@@ -1021,7 +1023,8 @@ async def openai_image_edits(request: Request, db: db_dependency):
             )
             
             success = 200 <= response.status_code < 300
-            handler.key_manager.update_key_usage(db, api_key_obj.id, success)
+            handler.key_manager.update_key_usage(db, api_key_obj, success)
+            record_api_call_log(db, api_key_obj.id)
             
             if not success:
                 error_detail = "图像编辑请求失败"
@@ -1068,7 +1071,7 @@ async def openai_image_edits(request: Request, db: db_dependency):
             logger.error(f"图像编辑请求处理失败: {e}", exc_info=True)
             
             try:
-                handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+                handler.key_manager.update_key_usage(db, api_key_obj, False)
             except Exception as update_error:
                 logger.error(f"更新密钥使用状态失败: {update_error}")
             
@@ -1076,12 +1079,12 @@ async def openai_image_edits(request: Request, db: db_dependency):
     
     except ProxyError as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         logger.error(f"代理错误: {e.detail}")
         raise HTTPException(status_code=e.status_code, detail=e.detail)
     except Exception as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         logger.error(f"未预期的错误: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="内部服务器错误")
 
@@ -1132,7 +1135,8 @@ async def list_models(request: Request, db: db_dependency):
             )
             response.raise_for_status()
             
-            handler.key_manager.update_key_usage(db, api_key_obj.id, True)
+            handler.key_manager.update_key_usage(db, api_key_obj, True)
+            record_api_call_log(db, api_key_obj.id)
             
             gemini_models_response = response.json()
             gemini_models = gemini_models_response.get("models", [])
@@ -1145,7 +1149,7 @@ async def list_models(request: Request, db: db_dependency):
             )
             
         except httpx.HTTPStatusError as e:
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
             logger.error(
                 f"从 Gemini 获取模型列表时收到错误状态码: {e.response.status_code} - {e.response.text}",
                 exc_info=True,
@@ -1156,7 +1160,7 @@ async def list_models(request: Request, db: db_dependency):
             )
         
         except httpx.RequestError as e:
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
             logger.error(f"从 Gemini 获取模型列表失败: {e}", exc_info=True)
             raise ProxyError(500, f"无法从 Gemini 获取模型列表: {str(e)}")
     
@@ -1165,7 +1169,7 @@ async def list_models(request: Request, db: db_dependency):
     
     except Exception as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False)
         logger.error(f"处理获取模型列表请求时出错: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"处理获取模型列表请求时出错: {str(e)}"

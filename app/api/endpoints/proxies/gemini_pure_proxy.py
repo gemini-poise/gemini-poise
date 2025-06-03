@@ -99,7 +99,6 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
         raise HTTPException(
             status_code=503, detail="No active target API keys available."
         )
-    target_api_key = target_api_key_obj.key_value
 
     query_params_to_send = dict(request.query_params)
 
@@ -114,7 +113,7 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
         skip_token_validation=True,
         params=query_params_to_send,
         api_key_header_name="x-goog-api-key",
-        target_api_key=target_api_key,
+        selected_key_obj=target_api_key_obj,
     )
 
     success = 200 <= response.status_code < 300

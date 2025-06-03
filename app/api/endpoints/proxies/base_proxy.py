@@ -6,7 +6,10 @@ from fastapi import Request, HTTPException, status
 from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 
+from datetime import datetime, timezone
+
 from .... import crud
+from ....models.models import ApiCallLog
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +78,30 @@ def update_key_status_based_on_response(
         db.rollback()
 
 
+def record_api_call_log(db: Session, api_key_id: int):
+    """
+    记录 API 调用日志，按分钟统计。
+    """
+    now = datetime.now(timezone.utc)
+    timestamp_minute = now.replace(second=0, microsecond=0)
+
+    log_entry = db.query(ApiCallLog).filter(
+        ApiCallLog.api_key_id == api_key_id,
+        ApiCallLog.timestamp == timestamp_minute
+    ).first()
+
+    if log_entry:
+        log_entry.call_count += 1
+    else:
+        log_entry = ApiCallLog(
+            api_key_id=api_key_id,
+            timestamp=timestamp_minute,
+            call_count=1
+        )
+        db.add(log_entry)
+    db.commit()
+
+
 async def base_proxy_request(
         request: Request,
         db: Session,
@@ -84,7 +111,7 @@ async def base_proxy_request(
         stream: bool = False,
         params: dict = None,
         skip_token_validation: bool = False,
-        target_api_key: str = None,
+        selected_key_obj=None,
         headers: Optional[Dict] = None
 ):
     """
@@ -96,10 +123,9 @@ async def base_proxy_request(
     selected_key = None
     max_failed_count = 3
     if api_key_header_name:
-        if target_api_key:
-            key_value = target_api_key
-            selected_key = type('ApiKey', (object,),
-                                {'id': 'direct', 'key_value': key_value, 'failed_count': 0, 'status': 'active'})()
+        if selected_key_obj:
+            selected_key = selected_key_obj
+            key_value = selected_key.key_value
         elif api_key_fetch_func:
             selected_key = api_key_fetch_func(db)
             if selected_key is None:
@@ -107,12 +133,10 @@ async def base_proxy_request(
             key_value = selected_key.key_value
         else:
             raise ValueError(
-                "Either api_key_fetch_func or target_api_key must be provided if api_key_header_name is not empty.")
+                "Either api_key_fetch_func, target_api_key, or selected_key_obj must be provided if api_key_header_name is not empty.")
 
         if key_value is None:
             raise HTTPException(status_code=503, detail="API key not available.")
-
-        selected_key_id = getattr(selected_key, 'id', 'N/A')
 
         max_failed_count_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
         if max_failed_count_str:
@@ -162,6 +186,7 @@ async def base_proxy_request(
                     initial_status = proxy_response.status_code
                     is_successful = initial_status >= 200 and initial_status < 300
                     update_key_status_based_on_response(db, selected_key, is_successful, max_failed_count)
+                    record_api_call_log(db, selected_key.id)
                 except Exception:
                     logger.warning("Could not get initial status code for streaming response to update key status.")
                     pass
@@ -189,6 +214,7 @@ async def base_proxy_request(
             if api_key_header_name and selected_key:
                 is_successful = proxy_response.status_code >= 200 and proxy_response.status_code < 300
                 update_key_status_based_on_response(db, selected_key, is_successful, max_failed_count)
+                record_api_call_log(db, selected_key.id)
 
             response_headers = dict(proxy_response.headers)
             response_headers.pop("content-encoding", None)
@@ -232,3 +258,4 @@ async def base_proxy_request(
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"An unexpected error occurred: {e}")
+

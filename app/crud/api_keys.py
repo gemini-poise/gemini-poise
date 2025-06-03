@@ -1,6 +1,6 @@
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Tuple
 
 from sqlalchemy import select, func, insert, and_, case
@@ -98,6 +98,24 @@ def bulk_delete_api_keys(db: Session, api_key_ids: List[int]) -> int:
     return delete_count
 
 
+def delete_api_call_logs_by_api_key_ids(db: Session, api_key_ids: List[int]) -> int:
+    """
+    根据 API Key ID 批量删除 API 调用日志。
+    返回删除的日志数量。
+    """
+    if not api_key_ids:
+        return 0
+
+    delete_count = (
+        db.query(models.ApiCallLog)
+        .filter(models.ApiCallLog.api_key_id.in_(api_key_ids))
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    logger.info(f"Bulk deleted {delete_count} API call logs for API Key IDs: {api_key_ids}")
+    return delete_count
+
+
 def bulk_add_api_keys(db: Session, key_values: List[str]) -> int:
     """
     批量添加 API Key。如果 Key 存在则跳过，不存在则插入。
@@ -184,37 +202,40 @@ def get_api_call_statistics(db: Session) -> schemas.ApiCallStatistics:
     获取 API 调用统计数据。
     """
     logger.info("Attempting to get API call statistics.")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Calls in the last 1 minute
     one_minute_ago = now - timedelta(minutes=1)
     calls_last_1_minute = (
-        db.query(func.sum(models.ApiKey.usage_count))
-        .filter(models.ApiKey.last_used_at >= one_minute_ago)
+        db.query(func.sum(models.ApiCallLog.call_count))
+        .filter(models.ApiCallLog.timestamp >= one_minute_ago)
         .scalar()
         or 0
     )
 
+    # Calls in the last 1 hour
     one_hour_ago = now - timedelta(hours=1)
     calls_last_1_hour = (
-        db.query(func.sum(models.ApiKey.usage_count))
-        .filter(models.ApiKey.last_used_at >= one_hour_ago)
+        db.query(func.sum(models.ApiCallLog.call_count))
+        .filter(models.ApiCallLog.timestamp >= one_hour_ago)
         .scalar()
         or 0
     )
 
+    # Calls in the last 24 hours
     twenty_four_hours_ago = now - timedelta(hours=24)
     calls_last_24_hours = (
-        db.query(func.sum(models.ApiKey.usage_count))
-        .filter(models.ApiKey.last_used_at >= twenty_four_hours_ago)
+        db.query(func.sum(models.ApiCallLog.call_count))
+        .filter(models.ApiCallLog.timestamp >= twenty_four_hours_ago)
         .scalar()
         or 0
     )
 
+    # Monthly usage (current month)
     start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     monthly_usage = (
-        db.query(func.sum(models.ApiKey.usage_count))
-        .filter(models.ApiKey.last_used_at >= start_of_month)
+        db.query(func.sum(models.ApiCallLog.call_count))
+        .filter(models.ApiCallLog.timestamp >= start_of_month)
         .scalar()
         or 0
     )
@@ -227,6 +248,42 @@ def get_api_call_statistics(db: Session) -> schemas.ApiCallStatistics:
     )
     logger.info(f"Retrieved API call statistics: {statistics.model_dump_json()}")
     return statistics
+
+
+def get_api_call_logs_by_minute(db: Session, hours_ago: int = 24) -> List[schemas.ApiCallLogEntry]:
+    """
+    获取按分钟统计的 API 调用日志。
+    """
+    logger.info(f"Attempting to get API call logs for the last {hours_ago} hours.")
+    end_time = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+    start_time = end_time - timedelta(hours=hours_ago)
+
+    results = db.query(
+        models.ApiCallLog.api_key_id,
+        models.ApiKey.key_value,
+        models.ApiCallLog.timestamp,
+        models.ApiCallLog.call_count
+    ).join(
+        models.ApiKey, models.ApiCallLog.api_key_id == models.ApiKey.id
+    ).filter(
+        models.ApiCallLog.timestamp >= start_time,
+        models.ApiCallLog.timestamp <= end_time
+    ).order_by(
+        models.ApiCallLog.api_key_id,
+        models.ApiCallLog.timestamp
+    ).all()
+
+    logs = [
+        schemas.ApiCallLogEntry(
+            api_key_id=r.api_key_id,
+            key_value= f"{r.key_value[:8]}...",
+            timestamp=r.timestamp,
+            call_count=r.call_count
+        )
+        for r in results
+    ]
+    logger.info(f"Retrieved {len(logs)} API call log entries.")
+    return logs
 
 
 # --- 用于代理逻辑的函数 ---

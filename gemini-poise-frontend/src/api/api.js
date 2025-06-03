@@ -37,6 +37,10 @@ export const getApiCallStatistics = () => {
   return api.get('/api_keys/statistics/calls');
 };
 
+export const getApiCallLogsByMinute = (hoursAgo = 24) => {
+  return api.get(`/api_keys/statistics/calls_by_minute?hours_ago=${hoursAgo}`);
+};
+
 export const getApiKeysPaginated = (params) => {
   return api.get('/api_keys/paginated', { params });
 };
