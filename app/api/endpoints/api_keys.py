@@ -19,6 +19,7 @@ from ...schemas.schemas import (
     ApiKeyBulkCheckResponse,
     ApiKeyCheckResult,
     ApiCallLogResponse,
+    KeyStatistics,
 )
 from ...tasks.key_validation import check_keys_validity
 
@@ -220,6 +221,16 @@ async def check_single_api_key(
         )
 
     return ApiKeyCheckResult(**check_results[0])
+
+
+@router.get("/statistics/keys", response_model=KeyStatistics)
+async def get_key_statistics_endpoint(db: db_dependency, current_user: user_dependency):
+    """
+    获取 API Key 统计数据（总数、有效、无效）。需要登录。
+    """
+    _ = current_user
+    statistics = crud.api_keys.get_key_statistics(db)
+    return statistics
 
 
 @router.get("/statistics/calls", response_model=ApiCallStatistics)

@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getApiKeysPaginated, getApiCallStatistics, getApiCallLogsByMinute } from '../api/api';
+import { getKeyStatistics, getApiCallStatistics, getApiCallLogsByMinute } from '../api/api';
 
 export const useKeyStatistics = () => {
-  const [totalKeys, setTotalKeys] = useState(0);
-  const [validKeys, setValidKeys] = useState(0);
-  const [invalidKeys, setInvalidKeys] = useState(0);
+  const [keyStatistics, setKeyStatistics] = useState({ totalKeys: 0, validKeys: 0, invalidKeys: 0 });
   const [loadingKeys, setLoadingKeys] = useState(true);
   const [errorKeys, setErrorKeys] = useState(null);
 
@@ -12,15 +10,12 @@ export const useKeyStatistics = () => {
     const fetchKeyStatistics = async () => {
       try {
         setLoadingKeys(true);
-        const totalResponse = await getApiKeysPaginated({ page: 1, page_size: 1 });
-        setTotalKeys(totalResponse.data.total);
-
-        const validResponse = await getApiKeysPaginated({ page: 1, page_size: 1, status: 'active' });
-        setValidKeys(validResponse.data.total);
-
-        const invalidResponse = await getApiKeysPaginated({ page: 1, page_size: 1, status: 'inactive' });
-        setInvalidKeys(invalidResponse.data.total);
-
+        const response = await getKeyStatistics();
+        setKeyStatistics({
+          totalKeys: response.data.total_keys,
+          validKeys: response.data.valid_keys,
+          invalidKeys: response.data.invalid_keys,
+        });
         setErrorKeys(null);
       } catch (err) {
         console.error("Error fetching key statistics:", err);
@@ -33,7 +28,7 @@ export const useKeyStatistics = () => {
     fetchKeyStatistics();
   }, []);
 
-  return { totalKeys, validKeys, invalidKeys, loadingKeys, errorKeys };
+  return { ...keyStatistics, loadingKeys, errorKeys };
 };
 
 export const useApiCallStatistics = () => {

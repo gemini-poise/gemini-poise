@@ -197,6 +197,25 @@ def get_api_keys_paginated(
     return list(items), total
 
 
+def get_key_statistics(db: Session) -> schemas.KeyStatistics:
+    """
+    获取 API Key 统计数据（总数、有效、无效）。
+    """
+    logger.info("Attempting to get API key statistics.")
+
+    total_keys = db.query(models.ApiKey).count()
+    valid_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "active").count()
+    invalid_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "inactive").count()
+
+    statistics = schemas.KeyStatistics(
+        total_keys=total_keys,
+        valid_keys=valid_keys,
+        invalid_keys=invalid_keys,
+    )
+    logger.info(f"Retrieved API key statistics: {statistics.model_dump_json()}")
+    return statistics
+
+
 def get_api_call_statistics(db: Session) -> schemas.ApiCallStatistics:
     """
     获取 API 调用统计数据。

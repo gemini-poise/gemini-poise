@@ -33,6 +33,10 @@ api.interceptors.response.use(
 );
 export default api;
 
+export const getKeyStatistics = () => {
+  return api.get('/api_keys/statistics/keys');
+};
+
 export const getApiCallStatistics = () => {
   return api.get('/api_keys/statistics/calls');
 };
