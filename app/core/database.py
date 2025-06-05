@@ -20,6 +20,8 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception as e: 
+        db.rollback()
     finally:
         db.close()
 
