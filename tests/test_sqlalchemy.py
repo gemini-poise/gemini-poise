@@ -9,13 +9,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class TestTable(Base):
+class SQLAlchemyTestTable(Base):
     __tablename__ = "test_sqlalchemy_table"
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False)
 
     def __repr__(self):
-        return f"<TestTable(id={self.id}, name='{self.name}')>"
+        return f"<SQLAlchemyTestTable(id={self.id}, name='{self.name}')>"
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_sqlalchemy_test_db():
@@ -36,13 +37,13 @@ def test_sqlalchemy_connection():
 
 def test_sqlalchemy_insert_and_select():
     with next(get_db()) as db:
-        new_entry = TestTable(name="Test Entry")
+        new_entry = SQLAlchemyTestTable(name="Test Entry")
         db.add(new_entry)
         db.commit()
         db.refresh(new_entry)
         logger.info(f"Inserted: {new_entry}")
 
-        retrieved_entry = db.query(TestTable).filter_by(name="Test Entry").first()
+        retrieved_entry = db.query(SQLAlchemyTestTable).filter_by(name="Test Entry").first()
         assert retrieved_entry is not None, "Failed to retrieve inserted data"
         assert retrieved_entry.name == "Test Entry", "Retrieved data mismatch"
         logger.info(f"Retrieved: {retrieved_entry}")
