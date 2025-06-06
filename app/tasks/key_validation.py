@@ -89,9 +89,9 @@ def validate_api_key_task(session_factory: Callable[[], Session]):
         validated_count = 0
         invalidated_count = 0
         for key in all_keys:
-            if key.status == "exhausted":
-                logger.info(f"Skipping validation for exhausted key ID {key.id}.")
-                continue
+            # if key.status == "exhausted":
+            #     logger.info(f"Skipping validation for exhausted key ID {key.id}.")
+            #     continue
 
             try:
                 headers = {
