@@ -82,10 +82,10 @@ const KeyManagementPage = () => {
                     case 'active':
                         color = 'green';
                         break;
-                    case 'inactive':
-                        color = 'volcano';
-                        break;
                     case 'exhausted':
+                        color = 'yellow';
+                        break;
+                    case 'error':
                         color = 'red';
                         break;
                     default:
@@ -134,234 +134,236 @@ const KeyManagementPage = () => {
             <div className="p-4">
                 <Title level={2} className="text-center">API Key Management</Title>
 
-            <Space className="mb-4" wrap>
-                <Input
-                    placeholder="Search API Key"
-                    value={searchKey}
-                    onChange={e => setSearchKey(e.target.value)}
-                    style={{ width: 200 }}
-                />
-                <Input
-                    type="number"
-                    placeholder="Min Failed Count"
-                    value={minFailedCount}
-                    onChange={e => {
-                        const value = e.target.value;
-                        const parsedValue = parseInt(value);
-                        setMinFailedCount(value === '' || isNaN(parsedValue) ? undefined : parsedValue);
-                    }}
-                    style={{ width: 150 }}
-                />
-                <Select
-                    placeholder="Select Status"
-                    value={filterStatus}
-                    onChange={value => setFilterStatus(value)}
-                    style={{ width: 150 }}
-                    allowClear
-                >
-                    <Option value="active">Active</Option>
-                    <Option value="inactive">Inactive</Option>
-                    <Option value="exhausted">Exhausted</Option>
-                </Select>
-                <Button type="primary" onClick={() => fetchKeys(1, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus })}>
-                    Filter
-                </Button>
-            </Space>
-
-            <div className="mb-4">
-                <Space>
-                    <Button type="primary" onClick={showAddModal}>Add Single Key</Button>
-                    <Button onClick={() => setBulkAddModalVisible(true)}>Bulk Add API Keys</Button>
-                    <Button
-                        onClick={handleCopySelectedKeys}
-                        disabled={selectedRowKeys.length === 0}
+                <Space className="mb-4" wrap>
+                    <Input
+                        placeholder="Search API Key"
+                        value={searchKey}
+                        onChange={e => setSearchKey(e.target.value)}
+                        style={{ width: 200 }}
+                    />
+                    <Input
+                        type="number"
+                        placeholder="Min Failed Count"
+                        value={minFailedCount}
+                        onChange={e => {
+                            const value = e.target.value;
+                            const parsedValue = parseInt(value);
+                            setMinFailedCount(value === '' || isNaN(parsedValue) ? undefined : parsedValue);
+                        }}
+                        style={{ width: 150 }}
+                    />
+                    <Select
+                        placeholder="Select Status"
+                        value={filterStatus}
+                        onChange={value => setFilterStatus(value)}
+                        style={{ width: 150 }}
+                        allowClear
                     >
-                        Copy Selected Keys
-                    </Button>
-                    <Button
-                        danger
-                        onClick={() => handleBulkDelete(selectedRowKeys)}
-                        disabled={selectedRowKeys.length === 0}
-                    >
-                        Bulk Delete Selected
-                    </Button>
-                    <Button
-                        onClick={handleBulkCheckKeys}
-                        disabled={selectedRowKeys.length === 0 || bulkChecking}
-                        loading={bulkChecking}
-                    >
-                        {bulkChecking ? 'Checking...' : 'Bulk Check Keys'}
+                        <Option value="active">Active</Option>
+                        <Option value="exhausted">Exhausted</Option>
+                        <Option value="error">Error</Option>
+                    </Select>
+                    <Button type="primary" onClick={() => fetchKeys(1, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus })}>
+                        Filter
                     </Button>
                 </Space>
-            </div>
-            <Table
-                columns={columns}
-                dataSource={keys}
-                rowKey="id"
-                loading={loading}
-                rowSelection={rowSelection}
-                rowClassName={(record) => {
-                    if (record.status === 'inactive') return 'row-inactive';
-                    if (record.status === 'exhausted') return 'row-exhausted';
-                    return '';
-                }}
-                pagination={{
-                    current: pagination.current,
-                    pageSize: pagination.pageSize,
-                    total: pagination.total,
-                    showSizeChanger: true,
-                    pageSizeOptions: ['10', '20', '50', '100'],
-                }}
-                onChange={handleTableChange}
-            />
-            <Modal
-                title="Bulk Key Check Results"
-                open={bulkCheckModalVisible}
-                onCancel={() => setBulkCheckModalVisible(false)}
-                footer={[
-                    <Button
-                        key="deleteInvalid"
-                        danger
-                        onClick={() => {
-                            const invalidKeyIds = bulkCheckResults
-                                .filter(result => result.status === 'invalid' || result.status === 'error')
-                                .map(result => {
-                                    const foundKey = keys.find(k => k.key_value === result.key_value);
-                                    return foundKey ? foundKey.id : null;
-                                })
-                                .filter(id => id !== null);
-                            handleBulkDelete(invalidKeyIds, 'Are you sure you want to delete invalid/error');
-                        }}
-                        disabled={bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
-                    >
-                        Delete Invalid/Error Keys
-                    </Button>,
-                    <Button key="close" onClick={() => setBulkCheckModalVisible(false)}>
-                        Close
-                    </Button>,
-                ]}
-                width={1000}
-            >
-                {bulkCheckResults.length > 0 ? (
-                    <Table
-                        dataSource={bulkCheckResults}
-                        columns={[
-                            { title: 'API Key', dataIndex: 'key_value', key: 'key_value', width: '30%',
-                                render: (text) => {
-                                    if (!text) return '-';
-                                    const maskedText = text.length > 16 ? `${text.substring(0, 8)}...${text.substring(text.length - 8)}` : text;
-                                    return (
-                                        <Tooltip title={text}>
-                                            <span>{maskedText}</span>
-                                        </Tooltip>
-                                    );
-                                }
-                            },
-                            { title: 'Status', dataIndex: 'status', key: 'status', width: '15%',
-                                render: (status) => {
-                                    let color;
-                                    switch (status) {
-                                        case 'valid':
-                                            color = 'green';
-                                            break;
-                                        case 'invalid':
-                                            color = 'red';
-                                            break;
-                                        case 'error':
-                                            color = 'volcano';
-                                            break;
-                                        default:
-                                            color = 'default';
+
+                <div className="mb-4">
+                    <Space>
+                        <Button type="primary" onClick={showAddModal}>Add Single Key</Button>
+                        <Button onClick={() => setBulkAddModalVisible(true)}>Bulk Add API Keys</Button>
+                        <Button
+                            onClick={handleCopySelectedKeys}
+                            disabled={selectedRowKeys.length === 0}
+                        >
+                            Copy Selected Keys
+                        </Button>
+                        <Button
+                            danger
+                            onClick={() => handleBulkDelete(selectedRowKeys)}
+                            disabled={selectedRowKeys.length === 0}
+                        >
+                            Bulk Delete Selected
+                        </Button>
+                        <Button
+                            onClick={handleBulkCheckKeys}
+                            disabled={selectedRowKeys.length === 0 || bulkChecking}
+                            loading={bulkChecking}
+                        >
+                            {bulkChecking ? 'Checking...' : 'Bulk Check Keys'}
+                        </Button>
+                    </Space>
+                </div>
+                <Table
+                    columns={columns}
+                    dataSource={keys}
+                    rowKey="id"
+                    loading={loading}
+                    rowSelection={rowSelection}
+                    rowClassName={(record) => {
+                        if (record.status === 'error') return 'row-error';
+                        if (record.status === 'exhausted') return 'row-exhausted';
+                        return '';
+                    }}
+                    pagination={{
+                        current: pagination.current,
+                        pageSize: pagination.pageSize,
+                        total: pagination.total,
+                        showSizeChanger: true,
+                        pageSizeOptions: ['10', '20', '50', '100'],
+                    }}
+                    onChange={handleTableChange}
+                />
+                <Modal
+                    title="Bulk Key Check Results"
+                    open={bulkCheckModalVisible}
+                    onCancel={() => setBulkCheckModalVisible(false)}
+                    footer={[
+                        <Button
+                            key="deleteInvalid"
+                            danger
+                            onClick={() => {
+                                const invalidKeyIds = bulkCheckResults
+                                    .filter(result => result.status === 'invalid' || result.status === 'error')
+                                    .map(result => {
+                                        const foundKey = keys.find(k => k.key_value === result.key_value);
+                                        return foundKey ? foundKey.id : null;
+                                    })
+                                    .filter(id => id !== null);
+                                handleBulkDelete(invalidKeyIds, 'Are you sure you want to delete invalid/error');
+                            }}
+                            disabled={bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
+                        >
+                            Delete Invalid/Error Keys
+                        </Button>,
+                        <Button key="close" onClick={() => setBulkCheckModalVisible(false)}>
+                            Close
+                        </Button>,
+                    ]}
+                    width={1000}
+                >
+                    {bulkCheckResults.length > 0 ? (
+                        <Table
+                            dataSource={bulkCheckResults}
+                            columns={[
+                                {
+                                    title: 'API Key', dataIndex: 'key_value', key: 'key_value', width: '30%',
+                                    render: (text) => {
+                                        if (!text) return '-';
+                                        const maskedText = text.length > 16 ? `${text.substring(0, 8)}...${text.substring(text.length - 8)}` : text;
+                                        return (
+                                            <Tooltip title={text}>
+                                                <span>{maskedText}</span>
+                                            </Tooltip>
+                                        );
                                     }
-                                    return <Tag color={color}>{status ? status.toUpperCase() : 'N/A'}</Tag>;
-                                }
-                            },
-                            { title: 'Message', dataIndex: 'message', key: 'message', width: '55%' },
-                        ]}
-                        rowKey="key_value"
-                        pagination={false}
-                        scroll={{ y: 400 }}
-                    />
-                ) : (
-                    <p>No results to display. Please select keys and run the bulk check.</p>
-                )}
-            </Modal>
+                                },
+                                {
+                                    title: 'Status', dataIndex: 'status', key: 'status', width: '15%',
+                                    render: (status) => {
+                                        let color;
+                                        switch (status) {
+                                            case 'valid':
+                                                color = 'green';
+                                                break;
+                                            case 'invalid':
+                                                color = 'red';
+                                                break;
+                                            case 'error':
+                                                color = 'volcano';
+                                                break;
+                                            default:
+                                                color = 'default';
+                                        }
+                                        return <Tag color={color}>{status ? status.toUpperCase() : 'N/A'}</Tag>;
+                                    }
+                                },
+                                { title: 'Message', dataIndex: 'message', key: 'message', width: '55%' },
+                            ]}
+                            rowKey="key_value"
+                            pagination={false}
+                            scroll={{ y: 400 }}
+                        />
+                    ) : (
+                        <p>No results to display. Please select keys and run the bulk check.</p>
+                    )}
+                </Modal>
 
-            <Modal
-                title={editingKey ? 'Edit API Key' : 'Add New Key'}
-                open={modalVisible}
-                onCancel={() => {
-                    setModalVisible(false);
-                    form.resetFields();
-                }}
-                footer={null}
-            >
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleSaveSingle}
+                <Modal
+                    title={editingKey ? 'Edit API Key' : 'Add New Key'}
+                    open={modalVisible}
+                    onCancel={() => {
+                        setModalVisible(false);
+                        form.resetFields();
+                    }}
+                    footer={null}
                 >
-                    <Form.Item
-                        label="API Key"
-                        name="key_value"
-                        rules={[{ required: true, message: 'Please input the API Key!' }]}
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={handleSaveSingle}
                     >
-                        <Input />
-                    </Form.Item>
-                    <Form.Item
-                        label="Status"
-                        name="status"
-                        rules={[{ required: true, message: 'Please select the Status!' }]}
-                    >
-                        <Select>
-                            <Option value="active">Active</Option>
-                            <Option value="inactive">Inactive</Option>
-                            <Option value="exhausted">Exhausted</Option>
-                        </Select>
-                    </Form.Item>
-                    <Form.Item
-                        label="Description"
-                        name="description"
-                    >
-                        <Input.TextArea />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit">
-                            Save
-                        </Button>
-                    </Form.Item>
-                </Form>
-            </Modal>
+                        <Form.Item
+                            label="API Key"
+                            name="key_value"
+                            rules={[{ required: true, message: 'Please input the API Key!' }]}
+                        >
+                            <Input />
+                        </Form.Item>
+                        <Form.Item
+                            label="Status"
+                            name="status"
+                            rules={[{ required: true, message: 'Please select the Status!' }]}
+                        >
+                            <Select>
+                                <Option value="active">Active</Option>
+                                <Option value="error">Error</Option>
+                                <Option value="exhausted">Exhausted</Option>
+                            </Select>
+                        </Form.Item>
+                        <Form.Item
+                            label="Description"
+                            name="description"
+                        >
+                            <Input.TextArea />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit">
+                                Save
+                            </Button>
+                        </Form.Item>
+                    </Form>
+                </Modal>
 
-            <Modal
-                title="Bulk Add API Keys"
-                open={bulkAddModalVisible}
-                onCancel={() => {
-                    setBulkAddModalVisible(false);
-                    bulkAddForm.resetFields();
-                }}
-                footer={null}
-            >
-                <Form
-                    form={bulkAddForm}
-                    layout="vertical"
-                    name="bulk_add_form"
-                    onFinish={handleBulkAdd}
+                <Modal
+                    title="Bulk Add API Keys"
+                    open={bulkAddModalVisible}
+                    onCancel={() => {
+                        setBulkAddModalVisible(false);
+                        bulkAddForm.resetFields();
+                    }}
+                    footer={null}
                 >
-                    <Form.Item
-                        label="API Keys (comma or newline separated)"
-                        name="keys_string"
-                        rules={[{ required: true, message: 'Please input API keys!' }]}
+                    <Form
+                        form={bulkAddForm}
+                        layout="vertical"
+                        name="bulk_add_form"
+                        onFinish={handleBulkAdd}
                     >
-                        <Input.TextArea rows={8} placeholder="Paste your API keys here, separated by commas or newlines." />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={bulkAdding}>
-                            Add Keys
-                        </Button>
-                    </Form.Item>
-                </Form>
-            </Modal>
+                        <Form.Item
+                            label="API Keys (comma or newline separated)"
+                            name="keys_string"
+                            rules={[{ required: true, message: 'Please input API keys!' }]}
+                        >
+                            <Input.TextArea rows={8} placeholder="Paste your API keys here, separated by commas or newlines." />
+                        </Form.Item>
+                        <Form.Item>
+                            <Button type="primary" htmlType="submit" loading={bulkAdding}>
+                                Add Keys
+                            </Button>
+                        </Form.Item>
+                    </Form>
+                </Modal>
 
             </div>
         </App>

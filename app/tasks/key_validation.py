@@ -62,10 +62,12 @@ def validate_api_key_task(session_factory: Callable[[], Session]):
 
         task_httpx_client = httpx.Client(timeout=timeout_seconds)
 
-        all_keys = crud_api_keys.get_active_api_keys(db)
+        all_keys = db.query(crud_api_keys.models.ApiKey).filter(
+            crud_api_keys.models.ApiKey.status != "error"
+        ).all()
 
         if not all_keys:
-            logger.info("No API keys found in database to validate.")
+            logger.info("No non-error API keys found in database to validate.")
             return
 
         config = crud_config.get_config_by_key(db, "target_api_url")
@@ -122,8 +124,11 @@ def validate_api_key_task(session_factory: Callable[[], Session]):
                     validation_endpoint, headers=headers, json=json_data
                 )
                 is_valid = response.status_code == 200 and "text" in response.text
-
-                update_key_status_based_on_response(db, key, is_valid, max_failed_count)
+                
+                if response.status_code == 429:
+                    update_key_status_based_on_response(db, key, False, max_failed_count, status_override="exhausted")
+                else:
+                    update_key_status_based_on_response(db, key, is_valid, max_failed_count)
 
                 if is_valid:
                     validated_count += 1
@@ -135,14 +140,14 @@ def validate_api_key_task(session_factory: Callable[[], Session]):
                     f"Error validating API Key ID {key.id} ({key.key_value[:8]}...): {exc}",
                     exc_info=True,
                 )
-                update_key_status_based_on_response(db, key, False, max_failed_count)
+                update_key_status_based_on_response(db, key, False, max_failed_count, status_override="error")
                 invalidated_count += 1
             except Exception as e:
                 logger.error(
                     f"Unexpected error during validation for API Key ID {key.id} ({key.key_value[:8]}...): {e}",
                     exc_info=True,
                 )
-                update_key_status_based_on_response(db, key, False, max_failed_count)
+                update_key_status_based_on_response(db, key, False, max_failed_count, status_override="error")
                 invalidated_count += 1
 
         logger.info(
@@ -248,12 +253,16 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                 )
                 is_valid = response.status_code == 200 and "text" in response.text
 
-                status_str = "valid" if is_valid else "invalid"
-                message_str = (
-                    "Key is valid."
-                    if is_valid
-                    else f"Validation failed: {response.status_code} - {response.text}"
-                )
+                if response.status_code == 429:
+                    status_str = "exhausted"
+                    message_str = f"Validation failed: {response.status_code} - Too Many Requests"
+                else:
+                    status_str = "valid" if is_valid else "error"
+                    message_str = (
+                        "Key is valid."
+                        if is_valid
+                        else f"Validation failed: {response.status_code} - {response.text}"
+                    )
 
                 results.append(
                     {

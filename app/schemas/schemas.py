@@ -113,7 +113,7 @@ class ApiKeyPaginationParams(BaseModel):
         None, ge=0, description="Filter by minimum failed count"
     )
     status: Optional[str] = Field(
-        None, description="Filter by status (active, inactive, exhausted)"
+        None, description="Filter by status (active, error, exhausted)"
     )
 
 
@@ -126,7 +126,7 @@ class PaginatedApiKeyResponse(PaginatedResponse[ApiKey]):
 class KeyStatistics(BaseModel):
     total_keys: int = Field(0, description="Total number of API keys")
     valid_keys: int = Field(0, description="Number of active API keys")
-    invalid_keys: int = Field(0, description="Number of inactive API keys")
+    invalid_keys: int = Field(0, description="Number of error API keys")
 
 
 # --- API Call Statistics Schemas ---

@@ -47,7 +47,8 @@ def update_key_status_based_on_response(
         db: Session,
         api_key,
         is_successful: bool,
-        max_failed_count: int
+        max_failed_count: int,
+        status_override: Optional[str] = None
 ):
     """
     更新状态
@@ -55,7 +56,13 @@ def update_key_status_based_on_response(
     original_key_status = api_key.status
     original_failed_count = api_key.failed_count
 
-    if is_successful:
+    if status_override:
+        api_key.status = status_override
+        if status_override == "exhausted" or status_override == "error":
+            api_key.failed_count += 1
+        db.add(api_key)
+        logger.info(f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) status overridden to '{status_override}'.")
+    elif is_successful:
         if api_key.failed_count > 0 or api_key.status != "active":
             api_key.failed_count = 0
             api_key.status = "active"
@@ -67,10 +74,10 @@ def update_key_status_based_on_response(
             f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) failed, failed count: {api_key.failed_count}.")
 
         if api_key.failed_count >= max_failed_count and api_key.status == "active":
-            api_key.status = "inactive"
+            api_key.status = "error"
             db.add(api_key)
             logger.warning(
-                f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) set to inactive due to exceeding max failed count ({max_failed_count}).")
+                f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) set to error due to exceeding max failed count ({max_failed_count}).")
 
     if api_key.status != original_key_status or api_key.failed_count != original_failed_count:
         db.commit()
@@ -239,7 +246,7 @@ async def base_proxy_request(
                         max_failed_count = 3
                 except ValueError:
                     max_failed_count = 3
-            update_key_status_based_on_response(db, selected_key, False, max_failed_count)
+            update_key_status_based_on_response(db, selected_key, False, max_failed_count, status_override="error")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Proxy request failed: {exc}")
     except Exception as e:
@@ -254,7 +261,7 @@ async def base_proxy_request(
                         max_failed_count = 3
                 except ValueError:
                     max_failed_count = 3
-            update_key_status_based_on_response(db, selected_key, False, max_failed_count)
+            update_key_status_based_on_response(db, selected_key, False, max_failed_count, status_override="error")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"An unexpected error occurred: {e}")

@@ -204,8 +204,10 @@ def get_key_statistics(db: Session) -> schemas.KeyStatistics:
     logger.info("Attempting to get API key statistics.")
 
     total_keys = db.query(models.ApiKey).count()
-    valid_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "active").count()
-    invalid_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "inactive").count()
+    valid_keys = db.query(models.ApiKey).filter(
+        (models.ApiKey.status == "active") | (models.ApiKey.status == "exhausted")
+    ).count()
+    invalid_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "error").count()
 
     statistics = schemas.KeyStatistics(
         total_keys=total_keys,
@@ -379,18 +381,20 @@ def increment_api_key_failure_count(
     db.refresh(api_key)
 
 
-def update_api_key_usage(db: Session, api_key_id: int, success: bool):
+def update_api_key_usage(db: Session, api_key_id: int, success: bool, status_override: Optional[str] = None):
     """
     更新 API Key 的使用次数、失败次数和最后使用时间。
     """
     db_api_key = get_api_key(db, api_key_id)
     if db_api_key:
-        db_api_key.last_used_at = datetime.utcnow()
-        if success:
+        db_api_key.last_used_at = datetime.now(timezone.utc)
+        if status_override:
+            db_api_key.status = status_override
+            if status_override == "exhausted" or status_override == "error":
+                db_api_key.failed_count += 1
+        elif success:
             db_api_key.usage_count += 1
             db_api_key.failed_count = 0
         else:
             db_api_key.failed_count += 1
-            # if db_api_key.failed_count >= 5:
-            #     db_api_key.status = "inactive"
         db.add(db_api_key)

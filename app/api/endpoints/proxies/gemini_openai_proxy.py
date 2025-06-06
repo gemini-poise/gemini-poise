@@ -577,48 +577,54 @@ async def openai_chat_completions(request: Request, db: db_dependency):
                 )
             
             success = 200 <= proxy_response.status_code < 300
-            handler.key_manager.update_key_usage(db, api_key_obj, success)
+            if proxy_response.status_code == 429:
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+            else:
+                handler.key_manager.update_key_usage(db, api_key_obj, success)
             record_api_call_log(db, api_key_obj.id)
-            
+
             if proxy_response.status_code == 401 and "preview" in gemini_path:
                 logger.warning(f"预览版模型 {gemini_path} 认证失败 (401)，尝试使用标准模型")
-                
+
                 if stream and proxy_response_context:
                     await proxy_response_context.__aexit__(None, None, None)
                 elif proxy_response:
                     await proxy_response.aclose()
-                
+
                 new_gemini_path = f"models/{FALLBACK_MODEL}:generateContent"
                 new_full_target_url = f"{target_url}/{new_gemini_path}"
-                
+
                 logger.info(f"回退到标准模型，新的目标 URL: {new_full_target_url}")
-                
+
                 proxy_response = await httpx_client.request(
                     method=request.method,
                     url=new_full_target_url,
                     headers=headers,
                     json=gemini_request_body,
                 )
-                
+
                 success = 200 <= proxy_response.status_code < 300
-                handler.key_manager.update_key_usage(db, api_key_obj, success)
+                if proxy_response.status_code == 429:
+                    handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+                else:
+                    handler.key_manager.update_key_usage(db, api_key_obj, success)
                 record_api_call_log(db, api_key_obj.id)
-            
+
             if not (200 <= proxy_response.status_code < 300):
                 logger.error(f"最终代理请求失败，状态码: {proxy_response.status_code}")
-                
+
                 if stream and proxy_response_context:
                     await proxy_response_context.__aexit__(None, None, None)
                 elif proxy_response:
                     await proxy_response.aclose()
-                
+
                 return Response(
                     content=proxy_response.content,
                     status_code=proxy_response.status_code,
                     headers=dict(proxy_response.headers),
                     media_type=proxy_response.headers.get("content-type", "application/json"),
                 )
-            
+
             if stream:
                 logger.info("返回流式响应")
                 return StreamingResponse(
@@ -638,11 +644,11 @@ async def openai_chat_completions(request: Request, db: db_dependency):
                     headers=dict(proxy_response.headers),
                     media_type="application/json",
                 )
-        
+
         except httpx.RequestError as exc:
             logger.error(f"请求错误: {exc}", exc_info=True)
             if 'api_key_obj' in locals():
-                handler.key_manager.update_key_usage(db, api_key_obj, False)
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Proxy request failed: {exc}",
@@ -650,20 +656,20 @@ async def openai_chat_completions(request: Request, db: db_dependency):
         except Exception as e:
             logger.error(f"处理请求时发生未预期错误: {e}", exc_info=True)
             if 'api_key_obj' in locals():
-                handler.key_manager.update_key_usage(db, api_key_obj.id, False)
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"An unexpected error occurred: {e}",
             )
-    
+
     except ProxyError as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
         raise HTTPException(status_code=e.status_code, detail=e.detail)
-    
+
     except Exception as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
         logger.error(f"聊天补全请求处理时发生未预期错误: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -786,7 +792,10 @@ async def openai_image_generations(request: Request, db: db_dependency):
         )
         
         success = 200 <= response.status_code < 300
-        handler.key_manager.update_key_usage(db, api_key_obj, success)
+        if response.status_code == 429:
+            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+        else:
+            handler.key_manager.update_key_usage(db, api_key_obj, success)
         record_api_call_log(db, api_key_obj.id)
         
         if not success:
@@ -796,7 +805,10 @@ async def openai_image_generations(request: Request, db: db_dependency):
                 error_detail = f"图像生成请求失败: {error_text}"
             except Exception:
                 pass
-            raise ProxyError(response.status_code, error_detail)
+            if response.status_code == 429:
+                raise ProxyError(response.status_code, "Too Many Requests")
+            else:
+                raise ProxyError(response.status_code, error_detail)
         
         try:
             response_text = response.text
@@ -1023,7 +1035,10 @@ async def openai_image_edits(request: Request, db: db_dependency):
             )
             
             success = 200 <= response.status_code < 300
-            handler.key_manager.update_key_usage(db, api_key_obj, success)
+            if response.status_code == 429:
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+            else:
+                handler.key_manager.update_key_usage(db, api_key_obj, success)
             record_api_call_log(db, api_key_obj.id)
             
             if not success:
@@ -1033,7 +1048,10 @@ async def openai_image_edits(request: Request, db: db_dependency):
                     error_detail = f"图像编辑请求失败: {error_text}"
                 except Exception:
                     pass
-                raise ProxyError(response.status_code, error_detail)
+                if response.status_code == 429:
+                    raise ProxyError(response.status_code, "Too Many Requests")
+                else:
+                    raise ProxyError(response.status_code, error_detail)
             
             try:
                 gemini_response = response.json()
@@ -1135,7 +1153,10 @@ async def list_models(request: Request, db: db_dependency):
             )
             response.raise_for_status()
             
-            handler.key_manager.update_key_usage(db, api_key_obj, True)
+            if response.status_code == 429:
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+            else:
+                handler.key_manager.update_key_usage(db, api_key_obj, True)
             record_api_call_log(db, api_key_obj.id)
             
             gemini_models_response = response.json()
@@ -1149,18 +1170,22 @@ async def list_models(request: Request, db: db_dependency):
             )
             
         except httpx.HTTPStatusError as e:
-            handler.key_manager.update_key_usage(db, api_key_obj, False)
-            logger.error(
-                f"从 Gemini 获取模型列表时收到错误状态码: {e.response.status_code} - {e.response.text}",
-                exc_info=True,
-            )
-            raise ProxyError(
-                e.response.status_code,
-                f"从 Gemini 获取模型列表失败: {e.response.text}"
-            )
+            if e.response.status_code == 429:
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+                raise ProxyError(e.response.status_code, "Too Many Requests")
+            else:
+                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
+                logger.error(
+                    f"从 Gemini 获取模型列表时收到错误状态码: {e.response.status_code} - {e.response.text}",
+                    exc_info=True,
+                )
+                raise ProxyError(
+                    e.response.status_code,
+                    f"从 Gemini 获取模型列表失败: {e.response.text}"
+                )
         
         except httpx.RequestError as e:
-            handler.key_manager.update_key_usage(db, api_key_obj, False)
+            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
             logger.error(f"从 Gemini 获取模型列表失败: {e}", exc_info=True)
             raise ProxyError(500, f"无法从 Gemini 获取模型列表: {str(e)}")
     

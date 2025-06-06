@@ -117,7 +117,10 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
     )
 
     success = 200 <= response.status_code < 300
-    crud.api_keys.update_api_key_usage(db, target_api_key_obj.id, success)
+    if response.status_code == 429:
+        crud.api_keys.update_api_key_usage(db, target_api_key_obj.id, False, status_override="exhausted")
+    else:
+        crud.api_keys.update_api_key_usage(db, target_api_key_obj.id, success)
     db.commit()
 
     return response

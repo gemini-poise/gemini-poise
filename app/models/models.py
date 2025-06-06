@@ -28,7 +28,6 @@ class ApiKey(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     key_value = Column(String, unique=True, index=True, nullable=False)
-    # status: active, inactive, exhausted, etc.
     status = Column(String, default="active", nullable=False)
     description = Column(String, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

@@ -25,7 +25,7 @@ def get_db():
         logger.info('entering db context')
         yield db
     finally:
-        logger.info('exiting db context') # 移动到 finally 块的开头
+        logger.info('exiting db context')
         logger.info('closing db session')
         db.close()
 
