@@ -53,6 +53,41 @@ gemini-proxy/
 
 ## 快速开始
 
+### Docker Compose 部署
+
+参考 `.env.example` 创建 `.env` 文件
+
+
+```yaml
+services:
+  backend:
+    image: alterem/gemini-poise
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./.env:/app/.env
+      - ./data:/data
+    environment:
+      - TZ=Asia/Shanghai
+    depends_on:
+      - redis
+
+  frontend:
+    image: alterem/gemini-poise-frontend
+    ports:
+      - "8101:80"
+    environment:
+      - TZ=Asia/Shanghai
+
+  redis:
+    image: redis:latest
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
+```
+
 ### 后端设置
 
 1. 克隆仓库并进入后端目录
@@ -99,7 +134,7 @@ gemini-proxy/
 
 2. 安装依赖
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. 配置环境变量
@@ -110,7 +145,7 @@ gemini-proxy/
 
 4. 启动开发服务器
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 5. 访问 http://localhost:3000 访问到登陆页面，输入 账号：`admin`，密码：`password123`
@@ -122,7 +157,7 @@ gemini-proxy/
 
 ![img1](https://raw.githubusercontent.com/alterem/picFB/master/uPic/2025/05/24/ssOF8r.png)
 
-![img2](https://raw.githubusercontent.com/alterem/picFB/master/uPic/2025/05/24/4MRLd4.png)
+![img2](https://raw.githubusercontent.com/alterem/picFB/master/uPic/2025/06/07/sA5rmJ.png)
 
 ![img3](https://raw.githubusercontent.com/alterem/picFB/master/uPic/2025/05/24/qR2mVj.png)
 
@@ -146,6 +181,7 @@ gemini-proxy/
 - [x] 实现 Token 认证依赖
 - [x] 实现用户登出
 - [x] 保护 Key 管理和配置 API
+- [ ] 用户密码修改
 
 ### 第三阶段：后端核心功能
 - [x] 实现随机获取可用 API Key 的逻辑
