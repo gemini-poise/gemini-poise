@@ -57,6 +57,7 @@ gemini-proxy/
 
 参考 `.env.example` 创建 `.env` 文件
 
+创建 `docker-compose.yaml` 文件
 
 ```yaml
 services:
@@ -87,6 +88,14 @@ services:
 volumes:
   redis_data:
 ```
+
+执行 `docker compose up -d` 启动
+
+访问 `ip:8100` 后，页面输出 `{"message":"Welcome to Gemini Poise AI Proxy Tool"}` 表示启动成功
+
+访问 `ip:8101` 后，进入前端页面，输入账号(`admin`) 密码(`password123`) 进入首页
+
+通过 api 使用时，注意设置页面(`ip:8101/config`)中的 `API Token` 字段不能为空
 
 ### 后端设置
 
