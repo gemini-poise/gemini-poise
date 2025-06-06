@@ -11,7 +11,10 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 # --- SQLAlchemy Database Setup ---
-engine = create_engine(settings.DATABASE_URL)
+engine = create_engine(settings.DATABASE_URL,
+                       pool_size=settings.POOL_SIZE,
+                       max_overflow=settings.MAX_OVERFLOW,
+                       pool_timeout=settings.POOL_TIMEOUT)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -19,10 +22,11 @@ Base = declarative_base()
 def get_db():
     db = SessionLocal()
     try:
+        logger.info('entering db context')
         yield db
-    except Exception as e: 
-        db.rollback()
+        logger.info('exiting db context')
     finally:
+        logger.info('closing db session')
         db.close()
 
 

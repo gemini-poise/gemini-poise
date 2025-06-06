@@ -8,6 +8,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     DATABASE_TYPE: str
     DATABASE_URL: str
+    POOL_SIZE: Optional[int] = 10
+    MAX_OVERFLOW: Optional[int] = 100
+    POOL_TIMEOUT: Optional[int] = 30
     REDIS_URL: str
     REDIS_PASSWORD: Optional[str] = None
     ACCESS_TOKEN_EXPIRE_MINUTES: int
