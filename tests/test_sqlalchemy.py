@@ -29,24 +29,34 @@ def setup_sqlalchemy_test_db():
 
     Base.metadata.drop_all(bind=engine)
 
-def test_sqlalchemy_connection():
-    with next(get_db()) as db:
-        result = db.execute(text("SELECT 1")).fetchone()
-        assert result is not None and result[0] == 1, "SQLAlchemy connection failed"
-        logger.info("SQLAlchemy connection successful.")
+@pytest.fixture
+def db_session():
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        yield db
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
 
-def test_sqlalchemy_insert_and_select():
-    with next(get_db()) as db:
-        new_entry = SQLAlchemyTestTable(name="Test Entry")
-        db.add(new_entry)
-        db.commit()
-        db.refresh(new_entry)
-        logger.info(f"Inserted: {new_entry}")
+def test_sqlalchemy_connection(db_session):
+    result = db_session.execute(text("SELECT 1")).fetchone()
+    assert result is not None and result[0] == 1, "SQLAlchemy connection successful."
+    logger.info("SQLAlchemy connection successful.")
 
-        retrieved_entry = db.query(SQLAlchemyTestTable).filter_by(name="Test Entry").first()
-        assert retrieved_entry is not None, "Failed to retrieve inserted data"
-        assert retrieved_entry.name == "Test Entry", "Retrieved data mismatch"
-        logger.info(f"Retrieved: {retrieved_entry}")
+def test_sqlalchemy_insert_and_select(db_session):
+    new_entry = SQLAlchemyTestTable(name="Test Entry")
+    db_session.add(new_entry)
+    db_session.commit()
+    db_session.refresh(new_entry)
+    logger.info(f"Inserted: {new_entry}")
 
-        db.delete(retrieved_entry)
-        db.commit()
+    retrieved_entry = db_session.query(SQLAlchemyTestTable).filter_by(name="Test Entry").first()
+    assert retrieved_entry is not None, "Failed to retrieve inserted data"
+    assert retrieved_entry.name == "Test Entry", "Retrieved data mismatch"
+    logger.info(f"Retrieved: {retrieved_entry}")
+
+    db_session.delete(retrieved_entry)
+    db_session.commit()
