@@ -80,7 +80,7 @@ const Header = () => {
           <LanguageSwitcher style={{ color: 'white' }} />
 
           <a
-            href="https://github.com/alterem"
+            href="https://github.com/alterem/gemini-poise"
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: 'white' }}
