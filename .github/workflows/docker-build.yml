@@ -68,19 +68,13 @@ jobs:
     - name: Generate Changelog
       id: changelog
       run: |
-        PREVIOUS_TAG=$(git for-each-ref --sort=-creatordate --count=2 --format='%(refname:short)' refs/tags | sed -n 2p)
-        IS_FIRST_RELEASE=false
-        if [ -z "$PREVIOUS_TAG" ]; then
-          # Fallback if no previous tag found (e.g., first release)
-          PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD) # Get the initial commit hash
-          IS_FIRST_RELEASE=true
-        fi
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
         echo "::debug::Previous tag found: '$PREVIOUS_TAG'"
 
         CHANGELOG_CONTENT=""
         GIT_LOG_COMMAND=""
 
-        if [ "$IS_FIRST_RELEASE" = true ]; then
+        if [ -z "$PREVIOUS_TAG" ]; then
           GIT_LOG_COMMAND='git log --pretty=format:"* %s (%h)"'
           CHANGELOG_CONTENT=$(git log --pretty=format:"* %s (%h)")
         else
@@ -91,7 +85,7 @@ jobs:
         echo "::debug::Raw git log output:"
         echo "$CHANGELOG_CONTENT"
         echo "::debug::End of raw git log output."
-        DELIMITER=$(openssl rand -hex 8) 
+        DELIMITER=$(openssl rand -hex 8)
         echo "::debug::Writing to GITHUB_OUTPUT with delimiter $DELIMITER"
         printf "%s<<%s\n%s\n%s\n" "CHANGELOG" "$DELIMITER" "$CHANGELOG_CONTENT" "$DELIMITER" >> "$GITHUB_OUTPUT"
         echo "::debug::Finished writing to GITHUB_OUTPUT."
