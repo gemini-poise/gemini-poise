@@ -69,16 +69,18 @@ jobs:
       id: changelog
       run: |
         PREVIOUS_TAG=$(git for-each-ref --sort=-creatordate --count=2 --format='%(refname:short)' refs/tags | sed -n 2p)
+        IS_FIRST_RELEASE=false
         if [ -z "$PREVIOUS_TAG" ]; then
           # Fallback if no previous tag found (e.g., first release)
           PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD) # Get the initial commit hash
+          IS_FIRST_RELEASE=true
         fi
         echo "::debug::Previous tag found: '$PREVIOUS_TAG'"
 
         CHANGELOG_CONTENT=""
         GIT_LOG_COMMAND=""
 
-        if [ -z "$PREVIOUS_TAG" ]; then
+        if [ "$IS_FIRST_RELEASE" = true ]; then
           GIT_LOG_COMMAND='git log --pretty=format:"* %s (%h)"'
           CHANGELOG_CONTENT=$(git log --pretty=format:"* %s (%h)")
         else
