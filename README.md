@@ -190,7 +190,7 @@ volumes:
 - [x] 实现 Token 认证依赖
 - [x] 实现用户登出
 - [x] 保护 Key 管理和配置 API
-- [ ] 用户密码修改
+- [x] 用户密码修改
 
 ### 第三阶段：后端核心功能
 - [x] 实现随机获取可用 API Key 的逻辑
@@ -202,6 +202,7 @@ volumes:
 - [x] 配置 Tailwind CSS
 - [x] 集成 Ant Design
 - [x] 设置路由 (React Router)
+- [x] 国际化支持
 
 ### 第五阶段：前端认证
 - [x] 创建登录页面
