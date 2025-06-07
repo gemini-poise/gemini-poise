@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Form, Input, Button, Card, Typography, App, Watermark } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useConfigManagement } from '../hooks/useConfigManagement';
@@ -17,7 +17,7 @@ const getConfigDefinitions = (t) => [
 const ConfigPage = () => {
     const [form] = Form.useForm();
     const { t } = useTranslation();
-    const configDefinitions = getConfigDefinitions(t);
+    const configDefinitions = useMemo(() => getConfigDefinitions(t), [t]);
     const { loading, saving, fetchConfig, saveConfig } = useConfigManagement(configDefinitions, t);
 
     useEffect(() => {
