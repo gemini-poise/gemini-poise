@@ -1,4 +1,5 @@
-import { Table, Button, Space, Modal, Form, Input, Select, Typography, Tooltip, App, Tag } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, Select, Typography, Tooltip, App, Tag, Spin } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useKeyManagement } from '../hooks/useKeyManagement';
 
 const { Title } = Typography;
@@ -7,6 +8,7 @@ const { Option } = Select;
 const KeyManagementPage = () => {
     const [form] = Form.useForm();
     const [bulkAddForm] = Form.useForm();
+    const { t } = useTranslation();
 
     const {
         keys,
@@ -41,7 +43,7 @@ const KeyManagementPage = () => {
         bulkChecking,
         handleBulkCheckKeys,
         handleCheckSingleKey,
-    } = useKeyManagement(form, bulkAddForm);
+    } = useKeyManagement(form, bulkAddForm, t);
 
     const rowSelection = {
         selectedRowKeys,
@@ -51,7 +53,7 @@ const KeyManagementPage = () => {
     const columns = [
         { title: 'ID', dataIndex: 'id', key: 'id' },
         {
-            title: 'API Key',
+            title: t('apiKeys.keyValue'),
             dataIndex: 'key_value',
             key: 'key_value',
             render: (text) => {
@@ -63,7 +65,7 @@ const KeyManagementPage = () => {
                             style={{ cursor: 'pointer' }}
                             onClick={() => {
                                 navigator.clipboard.writeText(text);
-                                App.useApp().message.success('API Key copied to clipboard!');
+                                App.useApp().message.success(t('apiKeys.apiKeyCopied'));
                             }}
                         >
                             {maskedText}
@@ -73,7 +75,7 @@ const KeyManagementPage = () => {
             }
         },
         {
-            title: 'Status',
+            title: t('apiKeys.status'),
             dataIndex: 'status',
             key: 'status',
             render: (status, record) => {
@@ -97,33 +99,38 @@ const KeyManagementPage = () => {
                         style={{ cursor: 'pointer' }}
                         onClick={() => handleCheckSingleKey(record.id)}
                     >
-                        {status ? status.toUpperCase() : 'N/A'}
+                        {status ? (
+                            status === 'active' ? t('apiKeys.active') :
+                                status === 'exhausted' ? t('apiKeys.exhausted') :
+                                    status === 'error' ? t('apiKeys.error') :
+                                        status.toUpperCase()
+                        ) : 'N/A'}
                     </Tag>
                 );
             }
         },
-        { title: 'Description', dataIndex: 'description', key: 'description' },
-        { title: 'Usage Count', dataIndex: 'usage_count', key: 'usage_count' },
-        { title: 'Failed Count', dataIndex: 'failed_count', key: 'failed_count' },
+        { title: t('apiKeys.description'), dataIndex: 'description', key: 'description' },
+        { title: t('apiKeys.usageCount'), dataIndex: 'usage_count', key: 'usage_count' },
+        { title: t('apiKeys.failedCount'), dataIndex: 'failed_count', key: 'failed_count' },
         {
-            title: 'Created At',
+            title: t('apiKeys.createdAt'),
             dataIndex: 'created_at',
             key: 'created_at',
             render: text => text ? new Date(text).toLocaleString() : '-'
         },
         {
-            title: 'Last Used At',
+            title: t('apiKeys.lastUsedAt'),
             dataIndex: 'last_used_at',
             key: 'last_used_at',
             render: text => text ? new Date(text).toLocaleString() : '-'
         },
         {
-            title: 'Action',
+            title: t('apiKeys.actions'),
             key: 'action',
             render: (_, record) => (
                 <Space size="middle">
-                    <Button onClick={() => showEditModal(record)}>Edit</Button>
-                    <Button danger onClick={() => handleDelete(record.id)}>Delete</Button>
+                    <Button onClick={() => showEditModal(record)}>{t('apiKeys.edit')}</Button>
+                    <Button danger onClick={() => handleDelete(record.id)}>{t('apiKeys.delete')}</Button>
                 </Space>
             ),
         },
@@ -132,18 +139,18 @@ const KeyManagementPage = () => {
     return (
         <App>
             <div className="p-4">
-                <Title level={2} className="text-center">API Key Management</Title>
+                <Title level={2} className="text-center">{t('apiKeys.title')}</Title>
 
                 <Space className="mb-4" wrap>
                     <Input
-                        placeholder="Search API Key"
+                        placeholder={t('apiKeys.searchApiKey')}
                         value={searchKey}
                         onChange={e => setSearchKey(e.target.value)}
                         style={{ width: 200 }}
                     />
                     <Input
                         type="number"
-                        placeholder="Min Failed Count"
+                        placeholder={t('apiKeys.minFailedCount')}
                         value={minFailedCount}
                         onChange={e => {
                             const value = e.target.value;
@@ -153,44 +160,44 @@ const KeyManagementPage = () => {
                         style={{ width: 150 }}
                     />
                     <Select
-                        placeholder="Select Status"
+                        placeholder={t('apiKeys.selectStatus')}
                         value={filterStatus}
                         onChange={value => setFilterStatus(value)}
                         style={{ width: 150 }}
                         allowClear
                     >
-                        <Option value="active">Active</Option>
-                        <Option value="exhausted">Exhausted</Option>
-                        <Option value="error">Error</Option>
+                        <Option value="active">{t('apiKeys.active')}</Option>
+                        <Option value="exhausted">{t('apiKeys.exhausted')}</Option>
+                        <Option value="error">{t('apiKeys.error')}</Option>
                     </Select>
                     <Button type="primary" onClick={() => fetchKeys(1, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus })}>
-                        Filter
+                        {t('apiKeys.filter')}
                     </Button>
                 </Space>
 
                 <div className="mb-4">
                     <Space>
-                        <Button type="primary" onClick={showAddModal}>Add Single Key</Button>
-                        <Button onClick={() => setBulkAddModalVisible(true)}>Bulk Add API Keys</Button>
+                        <Button type="primary" onClick={showAddModal}>{t('apiKeys.addSingleKey')}</Button>
+                        <Button onClick={() => setBulkAddModalVisible(true)}>{t('apiKeys.bulkAddApiKeys')}</Button>
                         <Button
                             onClick={handleCopySelectedKeys}
                             disabled={selectedRowKeys.length === 0}
                         >
-                            Copy Selected Keys
+                            {t('apiKeys.copySelectedKeys')}
                         </Button>
                         <Button
                             danger
-                            onClick={() => handleBulkDelete(selectedRowKeys)}
+                            onClick={() => handleBulkDelete(selectedRowKeys, t('apiKeys.confirmDeleteSelected'))}
                             disabled={selectedRowKeys.length === 0}
                         >
-                            Bulk Delete Selected
+                            {t('apiKeys.bulkDeleteSelected')}
                         </Button>
                         <Button
                             onClick={handleBulkCheckKeys}
                             disabled={selectedRowKeys.length === 0 || bulkChecking}
                             loading={bulkChecking}
                         >
-                            {bulkChecking ? 'Checking...' : 'Bulk Check Keys'}
+                            {bulkChecking ? t('apiKeys.checking') : t('apiKeys.bulkCheckKeys')}
                         </Button>
                     </Space>
                 </div>
@@ -215,7 +222,7 @@ const KeyManagementPage = () => {
                     onChange={handleTableChange}
                 />
                 <Modal
-                    title="Bulk Key Check Results"
+                    title={t('apiKeys.bulkKeyCheckResults')}
                     open={bulkCheckModalVisible}
                     onCancel={() => setBulkCheckModalVisible(false)}
                     footer={[
@@ -230,24 +237,29 @@ const KeyManagementPage = () => {
                                         return foundKey ? foundKey.id : null;
                                     })
                                     .filter(id => id !== null);
-                                handleBulkDelete(invalidKeyIds, 'Are you sure you want to delete invalid/error');
+                                handleBulkDelete(invalidKeyIds, t('apiKeys.confirmDeleteInvalidError'));
                             }}
                             disabled={bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
                         >
-                            Delete Invalid/Error Keys
+                            {t('apiKeys.deleteInvalidErrorKeys')}
                         </Button>,
                         <Button key="close" onClick={() => setBulkCheckModalVisible(false)}>
-                            Close
+                            {t('apiKeys.close')}
                         </Button>,
                     ]}
                     width={1000}
                 >
-                    {bulkCheckResults.length > 0 ? (
+                    {bulkChecking ? (
+                        <div style={{ textAlign: 'center', padding: '50px 0' }}>
+                            <Spin size="large" />
+                            <p style={{ marginTop: '16px' }}>{t('apiKeys.checking')}</p>
+                        </div>
+                    ) : bulkCheckResults.length > 0 ? (
                         <Table
                             dataSource={bulkCheckResults}
                             columns={[
                                 {
-                                    title: 'API Key', dataIndex: 'key_value', key: 'key_value', width: '30%',
+                                    title: t('apiKeys.keyValue'), dataIndex: 'key_value', key: 'key_value', width: '30%',
                                     render: (text) => {
                                         if (!text) return '-';
                                         const maskedText = text.length > 16 ? `${text.substring(0, 8)}...${text.substring(text.length - 8)}` : text;
@@ -259,7 +271,7 @@ const KeyManagementPage = () => {
                                     }
                                 },
                                 {
-                                    title: 'Status', dataIndex: 'status', key: 'status', width: '15%',
+                                    title: t('apiKeys.status'), dataIndex: 'status', key: 'status', width: '15%',
                                     render: (status) => {
                                         let color;
                                         switch (status) {
@@ -272,25 +284,32 @@ const KeyManagementPage = () => {
                                             case 'error':
                                                 color = 'volcano';
                                                 break;
+                                            case 'exhausted':
+                                                color = 'yellow';
+                                                break;
                                             default:
                                                 color = 'default';
                                         }
-                                        return <Tag color={color}>{status ? status.toUpperCase() : 'N/A'}</Tag>;
+                                        const statusText = status === 'valid' ? t('apiKeys.valid') :
+                                            status === 'invalid' ? t('apiKeys.invalid') :
+                                                status === 'error' ? t('apiKeys.error') :
+                                                    status === 'exhausted' ? t('apiKeys.exhausted') : 'N/A';
+                                        return <Tag color={color}>{statusText}</Tag>;
                                     }
                                 },
-                                { title: 'Message', dataIndex: 'message', key: 'message', width: '55%' },
+                                { title: t('apiKeys.message'), dataIndex: 'message', key: 'message', width: '55%' },
                             ]}
                             rowKey="key_value"
                             pagination={false}
                             scroll={{ y: 400 }}
                         />
                     ) : (
-                        <p>No results to display. Please select keys and run the bulk check.</p>
+                        <p>{t('apiKeys.noResultsToDisplay')}</p>
                     )}
                 </Modal>
 
                 <Modal
-                    title={editingKey ? 'Edit API Key' : 'Add New Key'}
+                    title={editingKey ? t('apiKeys.editApiKey') : t('apiKeys.addNewKey')}
                     open={modalVisible}
                     onCancel={() => {
                         setModalVisible(false);
@@ -304,39 +323,39 @@ const KeyManagementPage = () => {
                         onFinish={handleSaveSingle}
                     >
                         <Form.Item
-                            label="API Key"
+                            label={t('apiKeys.keyValue')}
                             name="key_value"
-                            rules={[{ required: true, message: 'Please input the API Key!' }]}
+                            rules={[{ required: true, message: t('apiKeys.pleaseInputApiKey') }]}
                         >
                             <Input />
                         </Form.Item>
                         <Form.Item
-                            label="Status"
+                            label={t('apiKeys.status')}
                             name="status"
-                            rules={[{ required: true, message: 'Please select the Status!' }]}
+                            rules={[{ required: true, message: t('apiKeys.pleaseSelectStatus') }]}
                         >
                             <Select>
-                                <Option value="active">Active</Option>
-                                <Option value="error">Error</Option>
-                                <Option value="exhausted">Exhausted</Option>
+                                <Option value="active">{t('apiKeys.active')}</Option>
+                                <Option value="error">{t('apiKeys.error')}</Option>
+                                <Option value="exhausted">{t('apiKeys.exhausted')}</Option>
                             </Select>
                         </Form.Item>
                         <Form.Item
-                            label="Description"
+                            label={t('apiKeys.description')}
                             name="description"
                         >
                             <Input.TextArea />
                         </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit">
-                                Save
+                                {t('apiKeys.save')}
                             </Button>
                         </Form.Item>
                     </Form>
                 </Modal>
 
                 <Modal
-                    title="Bulk Add API Keys"
+                    title={t('apiKeys.bulkAddApiKeys')}
                     open={bulkAddModalVisible}
                     onCancel={() => {
                         setBulkAddModalVisible(false);
@@ -351,15 +370,15 @@ const KeyManagementPage = () => {
                         onFinish={handleBulkAdd}
                     >
                         <Form.Item
-                            label="API Keys (comma or newline separated)"
+                            label={t('apiKeys.apiKeysCommaSeparated')}
                             name="keys_string"
-                            rules={[{ required: true, message: 'Please input API keys!' }]}
+                            rules={[{ required: true, message: t('apiKeys.pleaseInputApiKeys') }]}
                         >
-                            <Input.TextArea rows={8} placeholder="Paste your API keys here, separated by commas or newlines." />
+                            <Input.TextArea rows={8} placeholder={t('apiKeys.pasteApiKeysPlaceholder')} />
                         </Form.Item>
                         <Form.Item>
                             <Button type="primary" htmlType="submit" loading={bulkAdding}>
-                                Add Keys
+                                {t('apiKeys.addKeys')}
                             </Button>
                         </Form.Item>
                     </Form>

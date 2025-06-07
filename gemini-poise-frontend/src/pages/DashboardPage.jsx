@@ -1,6 +1,7 @@
 import { Card, Col, Row, Statistic, Spin, Alert } from 'antd';
 import CountUp from 'react-countup';
 import { Line } from 'react-chartjs-2';
+import { useTranslation } from 'react-i18next';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -24,6 +25,7 @@ ChartJS.register(
 );
 
 const DashboardPage = () => {
+  const { t } = useTranslation();
   const { totalKeys, validKeys, invalidKeys, loadingKeys, errorKeys } = useKeyStatistics();
   const { callsLast1Minute, callsLast1Hour, callsLast24Hours, monthlyUsage, loadingCalls, errorCalls } = useApiCallStatistics();
   const { apiCallLogs, loadingApiCallLogs, errorApiCallLogs } = useApiCallLogsByMinute(24);
@@ -47,25 +49,25 @@ const DashboardPage = () => {
             hoverable
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Key Statistics</span>
-                <span>Total: {renderStatisticValue(totalKeys, loadingKeys, errorKeys)}</span>
+                <span>{t('dashboard.keyStatistics')}</span>
+                <span>{t('dashboard.total')}: {renderStatisticValue(totalKeys, loadingKeys, errorKeys)}</span>
               </div>
             }
           >
             {errorKeys && <Alert message={errorKeys} type="error" showIcon />}
             <Statistic
-              title="Total Keys"
+              title={t('dashboard.totalKeys')}
               value={totalKeys}
               formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
             />
             <Statistic
-              title="Valid Keys"
+              title={t('dashboard.validKeys')}
               value={validKeys}
               valueStyle={{ color: '#3f8600' }}
               formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
             />
             <Statistic
-              title="Invalid Keys"
+              title={t('dashboard.invalidKeys')}
               value={invalidKeys}
               valueStyle={{ color: '#cf1322' }}
               formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
@@ -78,24 +80,24 @@ const DashboardPage = () => {
             hoverable
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>API Call Statistics</span>
-                <span>Monthly Usage: {renderStatisticValue(monthlyUsage, loadingCalls, errorCalls)}</span>
+                <span>{t('dashboard.apiCallStatistics')}</span>
+                <span>{t('dashboard.monthlyUsage')}: {renderStatisticValue(monthlyUsage, loadingCalls, errorCalls)}</span>
               </div>
             }
           >
             {errorCalls && <Alert message={errorCalls} type="error" showIcon />}
             <Statistic
-              title="1 Minute Calls"
+              title={t('dashboard.oneMinuteCalls')}
               value={callsLast1Minute}
               formatter={(value) => renderStatisticValue(value, loadingCalls, errorCalls)}
             />
             <Statistic
-              title="1 Hour Calls"
+              title={t('dashboard.oneHourCalls')}
               value={callsLast1Hour}
               formatter={(value) => renderStatisticValue(value, loadingCalls, errorCalls)}
             />
             <Statistic
-              title="24 Hour Calls"
+              title={t('dashboard.twentyFourHourCalls')}
               value={callsLast24Hours}
               formatter={(value) => renderStatisticValue(value, loadingCalls, errorCalls)}
             />
@@ -107,12 +109,12 @@ const DashboardPage = () => {
           <Card
             variant="borderless"
             hoverable
-            title="API Call Trends (Last 24 Hours)"
+            title={t('dashboard.apiCallTrends')}
           >
             {loadingApiCallLogs && <Spin />}
             {errorApiCallLogs && <Alert message={errorApiCallLogs} type="error" showIcon />}
             {!loadingApiCallLogs && !errorApiCallLogs && (
-              <Line data={processApiCallLogs(apiCallLogs)} options={chartOptions} />
+              <Line data={processApiCallLogs(apiCallLogs)} options={chartOptions(t)} />
             )}
           </Card>
         </Col>
@@ -167,7 +169,7 @@ const processApiCallLogs = (logs) => {
   };
 };
 
-const chartOptions = {
+const chartOptions = (t) => ({
   responsive: true,
   plugins: {
     legend: {
@@ -175,24 +177,24 @@ const chartOptions = {
     },
     title: {
       display: true,
-      text: 'API Calls Per Minute by Key',
+      text: t('dashboard.apiCallsPerMinute'),
     },
   },
   scales: {
     x: {
       title: {
         display: true,
-        text: 'Time (Minute)',
+        text: t('dashboard.time'),
       },
     },
     y: {
       title: {
         display: true,
-        text: 'Call Count',
+        text: t('dashboard.callCount'),
       },
       beginAtZero: true,
     },
   },
-};
+});
 
 export default DashboardPage;

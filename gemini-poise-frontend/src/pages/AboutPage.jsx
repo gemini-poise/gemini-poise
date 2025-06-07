@@ -1,30 +1,32 @@
 import { Typography, Card } from 'antd';
+import { useTranslation } from 'react-i18next';
 
 const { Title, Paragraph } = Typography;
 
 const AboutPage = () => {
+  const { t } = useTranslation();
   return (
     <div style={{ padding: '24px' }}>
-      <Card>
-        <Title level={4}>About Gemini Poise</Title>
+      <Card hoverable>
+        <Title level={4}>{t('about.title')}</Title>
         <Paragraph>
-          Gemini Poise is an application for managing and proxying Gemini API keys. It provides a user-friendly interface that allows you to add, manage, and monitor the usage of your Gemini API keys.
+          {t('about.intro')}
         </Paragraph>
         <Paragraph>
-          Key features include:
+          {t('about.featuresTitle')}
           <ul>
-            <li>Centralized management of multiple Gemini API keys</li>
-            <li>Automatic rotation and usage of active API keys</li>
-            <li>Monitoring of API key usage statistics and status</li>
-            <li>Supports request proxying in OpenAI format and Gemini native format</li>
-            <li>Supports streaming responses</li>
+            <li>{t('about.feature1')}</li>
+            <li>{t('about.feature2')}</li>
+            <li>{t('about.feature3')}</li>
+            <li>{t('about.feature4')}</li>
+            <li>{t('about.feature5')}</li>
           </ul>
         </Paragraph>
         <Paragraph>
-          The goal of this project is to simplify the management of Gemini API keys and improve API availability and stability.
+          {t('about.goal')}
         </Paragraph>
         <Paragraph>
-          If you have any questions or suggestions, feel free to ask.
+          {t('about.contact')}
         </Paragraph>
       </Card>
     </div>

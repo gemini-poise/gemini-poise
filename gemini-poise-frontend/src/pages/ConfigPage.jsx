@@ -1,22 +1,24 @@
 import { useEffect } from 'react';
 import { Form, Input, Button, Card, Typography, App, Watermark } from 'antd';
+import { useTranslation } from 'react-i18next';
 import { useConfigManagement } from '../hooks/useConfigManagement';
 
 const { Title } = Typography;
 
-const configDefinitions = [
-    { "k": "target_api_url", "l": "Target AI API URL", "required": true, "type": "text" },
-    { "k": "api_token", "l": "API Token", "required": true, "type": "password" },
-    { "k": "key_validation_interval_seconds", "l": "Key Validation Interval (seconds)", "required": true, "type": "number" },
-    { "k": "key_validation_max_failed_count", "l": "Key Validation Max Failed Count", "required": true, "type": "number" },
-    { "k": "key_validation_timeout_seconds", "l": "Key Validation Timeout (seconds)", "required": true, "type": "number" },
-    { "k": "key_validation_model_name", "l": "Key Validation Model Name", "required": false, "type": "text" },
-    // { k: "another_key", l: "Another Label", required: false, type: 'text' },
+const getConfigDefinitions = (t) => [
+    { "k": "target_api_url", "l": t('config.targetApiUrl'), "required": true, "type": "text" },
+    { "k": "api_token", "l": t('config.apiToken'), "required": true, "type": "password" },
+    { "k": "key_validation_interval_seconds", "l": t('config.keyValidationInterval'), "required": true, "type": "number" },
+    { "k": "key_validation_max_failed_count", "l": t('config.keyValidationMaxFailedCount'), "required": true, "type": "number" },
+    { "k": "key_validation_timeout_seconds", "l": t('config.keyValidationTimeout'), "required": true, "type": "number" },
+    { "k": "key_validation_model_name", "l": t('config.keyValidationModelName'), "required": false, "type": "text" },
 ];
 
 const ConfigPage = () => {
     const [form] = Form.useForm();
-    const { loading, saving, fetchConfig, saveConfig } = useConfigManagement(configDefinitions);
+    const { t } = useTranslation();
+    const configDefinitions = getConfigDefinitions(t);
+    const { loading, saving, fetchConfig, saveConfig } = useConfigManagement(configDefinitions, t);
 
     useEffect(() => {
         fetchConfig(form);
@@ -27,11 +29,11 @@ const ConfigPage = () => {
     };
 
     return (
-        <App> {/* App context is still needed here */}
-            <Watermark content="Gemini Poise Config">
+        <App>
+            <Watermark content={t('config.watermarkText')}>
                 <div className="flex justify-center">
                     <Card className="w-full max-w-xl" hoverable>
-                        <Title level={2} className="text-center">Configuration</Title>
+                        <Title level={2} className="text-center">{t('config.title')}</Title>
                         <Form
                             form={form}
                             layout="vertical"
@@ -45,7 +47,7 @@ const ConfigPage = () => {
                                     key={item.k}
                                     label={item.l}
                                     name={item.k}
-                                    rules={[{ required: item.required, message: `Please input the ${item.l}!` }]}
+                                    rules={[{ required: item.required, message: t('config.pleaseInputField', { field: item.l }) }]}
                                 >
                                     {item.type === 'password' ? (
                                         <Input.Password />
@@ -57,12 +59,13 @@ const ConfigPage = () => {
                             <Form.Item>
                                 <Button type="primary" htmlType="submit" className="w-full"
                                     loading={saving}>
-                                    Save Configuration
+                                    {t('config.save')}
                                 </Button>
                             </Form.Item>
                         </Form>
                     </Card>
                 </div>
+                <div className='pt-4'></div>
             </Watermark>
         </App>
     );

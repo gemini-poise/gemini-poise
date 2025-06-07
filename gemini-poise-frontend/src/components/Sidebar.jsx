@@ -1,5 +1,6 @@
 import { Layout, Menu, theme } from 'antd';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   KeyOutlined,
   SettingOutlined,
@@ -13,6 +14,7 @@ const { Sider: AntSider } = Layout;
 const Sidebar = () => {
   const location = useLocation();
   const { currentTheme } = useTheme();
+  const { t } = useTranslation();
   const isDark = currentTheme === 'dark';
 
   const {
@@ -28,10 +30,10 @@ const Sidebar = () => {
   };
 
   const menuItems = [
-    { key: 'dashboard', icon: <DashboardOutlined />, label: <Link to="/">Dashboard</Link> },
-    { key: 'keys', icon: <KeyOutlined />, label: <Link to="/keys">API Keys</Link> },
-    { key: 'config', icon: <SettingOutlined />, label: <Link to="/config">Configuration</Link> },
-    { key: 'about', icon: <InfoCircleOutlined />, label: <Link to="/about">About</Link> },
+    { key: 'dashboard', icon: <DashboardOutlined />, label: <Link to="/">{t('sidebar.dashboard')}</Link> },
+    { key: 'keys', icon: <KeyOutlined />, label: <Link to="/keys">{t('sidebar.apiKeys')}</Link> },
+    { key: 'config', icon: <SettingOutlined />, label: <Link to="/config">{t('sidebar.configuration')}</Link> },
+    { key: 'about', icon: <InfoCircleOutlined />, label: <Link to="/about">{t('sidebar.about')}</Link> },
   ];
 
   return (

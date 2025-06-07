@@ -11,7 +11,7 @@ import {
   checkApiKey,
 } from '../api/api';
 
-export const useKeyManagement = (form, bulkAddForm) => {
+export const useKeyManagement = (form, bulkAddForm, t) => {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -53,7 +53,7 @@ export const useKeyManagement = (form, bulkAddForm) => {
       }));
     } catch (error) {
       console.error("Failed to fetch API keys:", error);
-      message.error('Failed to load API keys.');
+      message.error(t('apiKeys.failedToLoadKeys'));
     } finally {
       setLoading(false);
     }
@@ -72,19 +72,19 @@ export const useKeyManagement = (form, bulkAddForm) => {
   const handleBulkAdd = async (values) => {
     const keysToAdd = values.keys_string.split(/[\n,]/).map(key => key.trim()).filter(key => key.length > 0);
     if (keysToAdd.length === 0) {
-      message.warning('Please enter API keys to add.');
+      message.warning(t('apiKeys.pleaseEnterKeysToAdd'));
       return;
     }
     setBulkAdding(true);
     try {
       const response = await bulkAddApiKeys({ keys: keysToAdd });
-      message.success(`Bulk add complete. Processed ${response.data.total_processed} keys, added ${response.data.total_added} new keys.`);
+      message.success(t('apiKeys.bulkAddComplete', { processed: response.data.total_processed, added: response.data.total_added }));
       bulkAddForm.resetFields();
       setBulkAddModalVisible(false);
       await fetchKeys();
     } catch (error) {
       console.error("Failed to add API keys from list:", error);
-      message.error('Failed to add API keys from list.');
+      message.error(t('apiKeys.failedToAddKeys'));
     } finally {
       setBulkAdding(false);
     }
@@ -95,17 +95,17 @@ export const useKeyManagement = (form, bulkAddForm) => {
     try {
       if (editingKey) {
         await updateApiKey(editingKey.id, values);
-        message.success('API Key updated successfully.');
+        message.success(t('apiKeys.keyUpdatedSuccess'));
       } else {
         await createApiKey(values);
-        message.success('API Key added successfully.');
+        message.success(t('apiKeys.keyAddedSuccess'));
       }
       setModalVisible(false);
       form.resetFields();
       fetchKeys(pagination.current, pagination.pageSize);
     } catch (error) {
       console.error("Failed to save API key:", error);
-      message.error('Failed to save API key.');
+      message.error(t('apiKeys.failedToSaveKey'));
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ export const useKeyManagement = (form, bulkAddForm) => {
     setLoading(true);
     try {
       await deleteApiKey(keyId);
-      message.success('API Key deleted successfully.');
+      message.success(t('apiKeys.keyDeletedSuccess'));
       if (keys.length === 1 && pagination.current > 1) {
         fetchKeys(pagination.current - 1, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus });
       } else {
@@ -123,7 +123,7 @@ export const useKeyManagement = (form, bulkAddForm) => {
       }
     } catch (error) {
       console.error("Failed to delete API key:", error);
-      message.error('Failed to delete API key.');
+      message.error(t('apiKeys.failedToDeleteKey'));
     } finally {
       setLoading(false);
     }
@@ -146,29 +146,29 @@ export const useKeyManagement = (form, bulkAddForm) => {
       .map(key => key.key_value);
     if (selectedKeys.length > 0) {
       navigator.clipboard.writeText(selectedKeys.join(', '));
-      message.success(`${selectedKeys.length} API Key(s) copied to clipboard!`);
+      message.success(t('apiKeys.keysCopiedSuccess', { count: selectedKeys.length }));
     } else {
-      message.warning('No API Keys selected.');
+      message.warning(t('apiKeys.noKeysSelected'));
     }
   };
 
   const handleBulkDelete = async (idsToDelete = selectedRowKeys, confirmMessage = 'Are you sure you want to delete') => {
     if (idsToDelete.length === 0) {
-      message.warning('No API Keys to delete.');
+      message.warning(t('apiKeys.noKeysToDelete'));
       return;
     }
 
     Modal.confirm({
-      title: 'Confirm Delete',
-      content: `${confirmMessage} ${idsToDelete.length} API Key(s)?`,
-      okText: 'Yes',
+      title: t('apiKeys.confirmDelete'),
+      content: t('apiKeys.confirmDeleteMessage', { message: confirmMessage, count: idsToDelete.length }),
+      okText: t('apiKeys.yes'),
       okType: 'danger',
-      cancelText: 'No',
+      cancelText: t('apiKeys.no'),
       onOk: async () => {
         setLoading(true);
         try {
           const response = await bulkDeleteApiKeys(idsToDelete);
-          message.success(response.data.detail || 'Selected API Key(s) deleted successfully.');
+          message.success(response.data.detail || t('apiKeys.keysDeletedSuccess'));
           setSelectedRowKeys([]);
           setBulkCheckResults([]);
           setBulkCheckModalVisible(false);
@@ -182,7 +182,7 @@ export const useKeyManagement = (form, bulkAddForm) => {
 
         } catch (error) {
           console.error("Failed to bulk delete API keys:", error);
-          message.error('Failed to delete selected API Key(s).');
+          message.error(t('apiKeys.failedToDeleteKeys'));
         } finally {
           setLoading(false);
         }
@@ -198,7 +198,7 @@ export const useKeyManagement = (form, bulkAddForm) => {
 
   const handleBulkCheckKeys = async () => {
     if (selectedRowKeys.length === 0) {
-      message.warning('Please select API Keys to check.');
+      message.warning(t('apiKeys.pleaseSelectKeysToCheck'));
       return;
     }
 
@@ -209,11 +209,11 @@ export const useKeyManagement = (form, bulkAddForm) => {
     try {
       const response = await bulkCheckApiKeys(selectedRowKeys);
       setBulkCheckResults(response.data.results);
-      message.success('Bulk check completed successfully.');
+      message.success(t('apiKeys.bulkCheckCompleted'));
       setSelectedRowKeys([]);
     } catch (error) {
       console.error("Failed to bulk check API keys:", error);
-      message.error('Failed to bulk check API keys.');
+      message.error(t('apiKeys.failedToBulkCheck'));
       setBulkCheckResults([]);
     } finally {
       setBulkChecking(false);
@@ -225,14 +225,14 @@ export const useKeyManagement = (form, bulkAddForm) => {
     try {
       const response = await checkApiKey(keyId);
       if (response.data.status === 'valid') {
-        message.success('API Key is valid!');
+        message.success(t('apiKeys.keyIsValid'));
       } else {
-        message.error(`API Key is invalid: ${response.data.message}`);
+        message.error(t('apiKeys.keyIsInvalid', { message: response.data.message }));
       }
       await fetchKeys();
     } catch (error) {
       console.error("Failed to check single API key:", error);
-      message.error(`Failed to check API key: ${error.response?.data?.detail || error.message}`);
+      message.error(t('apiKeys.failedToCheckKey', { message: error.response?.data?.detail || error.message }));
     } finally {
       setLoading(false);
     }

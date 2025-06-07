@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { changePassword } from '../api/api';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 import {
   LogoutOutlined,
   GithubOutlined,
@@ -17,6 +19,7 @@ const { Title } = Typography;
 const Header = () => {
   const { user, logout } = useAuth();
   const { currentTheme, toggleTheme } = useTheme();
+  const { t } = useTranslation();
   const isDark = currentTheme === 'dark';
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [passwordForm] = Form.useForm();
@@ -54,11 +57,11 @@ const Header = () => {
         current_password: values.currentPassword,
         new_password: values.newPassword
       });
-      message.success('Password changed successfully!');
+      message.success(t('header.passwordChangedSuccess'));
       setIsPasswordModalVisible(false);
       passwordForm.resetFields();
     } catch (error) {
-      message.error(error.response?.data?.detail || 'Failed to change password, please try again');
+      message.error(error.response?.data?.detail || t('header.passwordChangeFailed'));
     } finally {
       setLoading(false);
     }
@@ -69,11 +72,13 @@ const Header = () => {
       <AntHeader style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', marginRight: 'auto' }}>
           <Title level={4} style={{ color: 'white', margin: 0 }}>
-            Gemini Poise
+            {t('header.title')}
           </Title>
         </div>
 
         <Space size="middle">
+          <LanguageSwitcher style={{ color: 'white' }} />
+
           <a
             href="https://github.com/alterem"
             target="_blank"
@@ -112,14 +117,14 @@ const Header = () => {
           >
             <Space>
               <LogoutOutlined />
-              <span>Logout</span>
+              <span>{t('header.logout')}</span>
             </Space>
           </a>
         </Space>
       </AntHeader>
 
       <Modal
-        title="Change Password"
+        title={t('header.changePassword')}
         open={isPasswordModalVisible}
         onCancel={handlePasswordModalCancel}
         footer={null}
@@ -132,52 +137,52 @@ const Header = () => {
           autoComplete="off"
         >
           <Form.Item
-            label="Current Password"
+            label={t('header.currentPassword')}
             name="currentPassword"
             rules={[
-              { required: true, message: 'Please enter current password' }
+              { required: true, message: t('header.currentPasswordRequired') }
             ]}
           >
-            <Input.Password placeholder="Enter current password" />
+            <Input.Password placeholder={t('header.enterCurrentPassword')} />
           </Form.Item>
 
           <Form.Item
-            label="New Password"
+            label={t('header.newPassword')}
             name="newPassword"
             rules={[
-              { required: true, message: 'Please enter new password' },
-              { min: 6, message: 'Password must be at least 6 characters' }
+              { required: true, message: t('header.newPasswordRequired') },
+              { min: 6, message: t('header.passwordMinLength') }
             ]}
           >
-            <Input.Password placeholder="Enter new password" />
+            <Input.Password placeholder={t('header.enterNewPassword')} />
           </Form.Item>
 
           <Form.Item
-            label="Confirm New Password"
+            label={t('header.confirmNewPassword')}
             name="confirmPassword"
             dependencies={['newPassword']}
             rules={[
-              { required: true, message: 'Please confirm new password' },
+              { required: true, message: t('header.confirmPasswordRequired') },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue('newPassword') === value) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error('The two passwords do not match'));
+                  return Promise.reject(new Error(t('header.passwordsNotMatch')));
                 },
               }),
             ]}
           >
-            <Input.Password placeholder="Enter new password again" />
+            <Input.Password placeholder={t('header.enterNewPasswordAgain')} />
           </Form.Item>
 
           <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
               <Button onClick={handlePasswordModalCancel}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="primary" htmlType="submit" loading={loading}>
-                Confirm
+                {t('common.confirm')}
               </Button>
             </Space>
           </Form.Item>

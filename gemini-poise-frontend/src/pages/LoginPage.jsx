@@ -1,5 +1,7 @@
-import { Form, Input, Button, Card, Typography, Checkbox, Layout } from 'antd';
+import { Form, Input, Button, Card, Typography, Checkbox, Layout, Space } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useLogin } from '../hooks/useLogin';
 
 const { Title } = Typography;
@@ -7,15 +9,22 @@ const { Content } = Layout;
 
 const LoginPage = () => {
   const [form] = Form.useForm();
-  const { loading, handleLogin, rememberedUsername } = useLogin(form);
+  const { t } = useTranslation();
+  const { loading, handleLogin, rememberedUsername } = useLogin(form, t);
 
   return (
     <Layout className="h-screen flex flex-col justify-center items-center bg-gray-100 login-background">
+      <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1000 }}>
+        <Space>
+          <Typography.Text type="secondary">{t('language.switch')}:</Typography.Text>
+          <LanguageSwitcher />
+        </Space>
+      </div>
       <Content className="w-full max-w-md p-4 flex flex-col justify-center">
         <Card className="shadow-lg rounded-lg">
           <div className="text-center mb-6">
-            <Title level={2} className="m-0">Gemini Poise Login</Title>
-            <Typography.Text type="secondary">Gemini Proxy Tool</Typography.Text>
+            <Title level={2} className="m-0">{t('login.title')}</Title>
+            <Typography.Text type="secondary">{t('login.subtitle')}</Typography.Text>
           </div>
           <Form
             form={form}
@@ -32,13 +41,13 @@ const LoginPage = () => {
               name="username"
               rules={[{
                 required: true,
-                message: 'Please input your Username!',
+                message: t('login.usernameRequired'),
                 whitespace: true
               }]}
             >
               <Input
                 prefix={<UserOutlined className="site-form-item-icon" />}
-                placeholder="Username"
+                placeholder={t('login.username')}
                 autoComplete="username"
               />
             </Form.Item>
@@ -47,20 +56,20 @@ const LoginPage = () => {
               name="password"
               rules={[{
                 required: true,
-                message: 'Please input your Password!',
+                message: t('login.passwordRequired'),
                 whitespace: true
               }]}
             >
               <Input.Password
                 prefix={<LockOutlined className="site-form-item-icon" />}
-                placeholder="Password"
+                placeholder={t('login.password')}
                 autoComplete="current-password"
               />
             </Form.Item>
 
             <Form.Item>
               <Form.Item name="remember" valuePropName="checked" noStyle>
-                <Checkbox>Remember me</Checkbox>
+                <Checkbox>{t('login.rememberMe')}</Checkbox>
               </Form.Item>
             </Form.Item>
 
@@ -71,7 +80,7 @@ const LoginPage = () => {
                 className="w-full"
                 loading={loading}
               >
-                Log in
+                {t('login.loginButton')}
               </Button>
             </Form.Item>
           </Form>

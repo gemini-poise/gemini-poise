@@ -1,20 +1,30 @@
-import React from 'react';
-import { Result, Button } from 'antd';
+import { Result, Button, Space, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useTranslation } from 'react-i18next';
 
 const NotFoundPage = () => {
+  const { t } = useTranslation();
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-100">
-      <Result
-        status="404"
-        title="404"
-        subTitle="Sorry, the page you visited does not exist."
-        extra={
-          <Button type="primary">
-            <Link to="/">Back Home</Link>
-          </Button>
-        }
-      />
+      <div style={{ position: 'absolute', top: '20px', right: '20px' }}>
+        <Space>
+          <Typography.Text type="secondary">{t('language.switch')}:</Typography.Text>
+          <LanguageSwitcher />
+        </Space>
+      </div>
+      <div style={{ position: 'relative', width: '100%', maxWidth: '600px' }}>
+        <Result
+          status="404"
+          title={t('notFound.title')}
+          subTitle={t('notFound.subtitle')}
+          extra={
+            <Button type="primary">
+              <Link to="/">{t('notFound.backHome')}</Link>
+            </Button>
+          }
+        />
+      </div>
     </div>
   );
 };

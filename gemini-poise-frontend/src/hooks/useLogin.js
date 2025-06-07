@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { App } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 
-export const useLogin = (form) => {
+export const useLogin = (form, t) => {
   const { message } = App.useApp();
   const { login } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ export const useLogin = (form) => {
 
   const handleLogin = async (values) => {
     if (!values.username || !values.password) {
-      message.error('Username and password are required!');
+      message.error(t('login.usernamePasswordRequired'));
       return;
     }
 
@@ -29,9 +29,9 @@ export const useLogin = (form) => {
       } else {
         localStorage.removeItem('rememberedUsername');
       }
-      message.success('Login successful!');
+      message.success(t('login.loginSuccessful'));
     } catch (error) {
-      message.error('Login failed: Incorrect username or password.');
+      message.error(t('login.loginFailed'));
       console.error("Login failed:", error);
     } finally {
       setLoading(false);

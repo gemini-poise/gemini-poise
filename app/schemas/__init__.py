@@ -1,7 +1,3 @@
-# This file makes the 'schemas' directory a Python package.
-# We explicitly import the schema classes from schemas.py here
-# to make them available when the 'schemas' package is imported elsewhere.
-
 from .schemas import (
     PaginationParams,
     PaginatedResponse,

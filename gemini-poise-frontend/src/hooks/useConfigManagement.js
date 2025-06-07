@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { App } from 'antd';
 import { getAllConfig, bulkSaveConfig } from '../api/api';
 
-export const useConfigManagement = (configDefinitions) => {
+export const useConfigManagement = (configDefinitions, t) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { message } = App.useApp();
@@ -21,7 +21,7 @@ export const useConfigManagement = (configDefinitions) => {
       form.setFieldsValue(formValues);
     } catch (error) {
       console.error("Failed to fetch config:", error);
-      message.error('Failed to load configuration.');
+      message.error(t('config.failedToLoadConfig'));
     } finally {
       setLoading(false);
     }
@@ -39,10 +39,10 @@ export const useConfigManagement = (configDefinitions) => {
         .filter(item => item.value !== null && item.value !== undefined && item.value !== '');
 
       await bulkSaveConfig({ items: dataArray });
-      message.success('All configurations saved successfully.');
+      message.success(t('config.configSavedSuccess'));
     } catch (error) {
       console.error("Failed to bulk save configs:", error);
-      message.error('Failed to save configurations.');
+      message.error(t('config.failedToSaveConfig'));
     } finally {
       setSaving(false);
     }
