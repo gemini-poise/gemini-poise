@@ -68,7 +68,11 @@ jobs:
     - name: Generate Changelog
       id: changelog
       run: |
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        PREVIOUS_TAG=$(git for-each-ref --sort=-creatordate --count=2 --format='%(refname:short)' refs/tags | sed -n 2p)
+        if [ -z "$PREVIOUS_TAG" ]; then
+          # Fallback if no previous tag found (e.g., first release)
+          PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD) # Get the initial commit hash
+        fi
         echo "::debug::Previous tag found: '$PREVIOUS_TAG'"
 
         CHANGELOG_CONTENT=""
