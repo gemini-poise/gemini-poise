@@ -173,6 +173,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# --- Change Password Request Schema ---
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 # --- Config Schemas ---
 
 

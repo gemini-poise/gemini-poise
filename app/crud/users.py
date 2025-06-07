@@ -36,3 +36,18 @@ def get_user(db: Session, user_id: int):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     logger.info(f"Result for user ID '{user_id}': {user}")
     return user
+
+
+def update_user_password(db: Session, user_id: int, new_hashed_password: str):
+    """更新用户密码。"""
+    logger.info(f"Attempting to update password for user ID: {user_id}")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        user.hashed_password = new_hashed_password
+        db.commit()
+        db.refresh(user)
+        logger.info(f"Password updated successfully for user ID: {user_id}")
+        return user
+    else:
+        logger.warning(f"User with ID {user_id} not found")
+        return None

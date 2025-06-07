@@ -84,3 +84,7 @@ export const getAllConfig = () => {
 export const bulkSaveConfig = (data) => {
   return api.post('/config/bulk-save', data);
 };
+
+export const changePassword = (data) => {
+  return api.post('/users/change-password', data);
+};

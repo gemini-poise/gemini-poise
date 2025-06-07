@@ -11,6 +11,7 @@ from ...core.security import (
     db_dependency,
     redis_dependency,
     oauth2_scheme,
+    get_password_hash,
 )
 
 router = APIRouter(tags=["Authentication"])
@@ -68,3 +69,31 @@ async def create_user(user: schemas.UserCreate, db: db_dependency):
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.users.create_user(db=db, user=user)
+
+
+@router.post("/users/change-password")
+async def change_password(
+    password_data: schemas.ChangePasswordRequest,
+    current_user: user_dependency,
+    db: db_dependency
+):
+    """
+    Change current user's password
+    """
+    db_user = crud.users.get_user(db, user_id=current_user.id)
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if not verify_password(password_data.current_password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    new_hashed_password = get_password_hash(password_data.new_password)
+    crud.users.update_user_password(db, user_id=current_user.id, new_hashed_password=new_hashed_password)
+    
+    return {"message": "Password changed successfully"}
