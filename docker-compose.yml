@@ -6,20 +6,28 @@ services:
     volumes:
       - ./.env:/app/.env
       - ./data/:/data
-    # environment:
+    environment:
+      - TZ=Asia/Shanghai
     #   - DATABASE_URL=your_production_db_url
     #   - API_KEY=your_production_api_key
     depends_on:
       - redis
+    restart: always
 
   frontend:
     ports:
       - "8001:80"
+    environment:
+      - TZ=Asia/Shanghai
+    restart: always
 
   redis:
     image: redis:latest
     volumes:
       - redis_data:/data
+    environment:
+      - TZ=Asia/Shanghai
+    restart: always
 
 volumes:
   redis_data:

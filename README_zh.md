@@ -87,6 +87,7 @@ gemini-poise/
           - ./data:/data
         environment:
           - TZ=Asia/Shanghai
+        restart: always
         depends_on:
           - redis
 
@@ -96,11 +97,15 @@ gemini-poise/
           - "8101:80"
         environment:
           - TZ=Asia/Shanghai
+        restart: always
 
       redis:
         image: redis:latest
         volumes:
           - redis_data:/data
+        environment:
+          - TZ=Asia/Shanghai
+        restart: always
 
     volumes:
       redis_data:
