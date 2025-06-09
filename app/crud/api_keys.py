@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..models import models
 from ..schemas import schemas
+from ..utils.token_bucket import token_bucket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -398,3 +399,206 @@ def update_api_key_usage(db: Session, api_key_id: int, success: bool, status_ove
         else:
             db_api_key.failed_count += 1
         db.add(db_api_key)
+
+
+# --- Token Bucket 相关函数 ---
+
+def get_api_key_with_token_bucket(db: Session, required_tokens: int = 1) -> Optional[models.ApiKey]:
+    """
+    使用 token bucket 算法获取可用的 API Key。
+    优先选择令牌充足的 key，实现智能负载均衡。
+    
+    Args:
+        db: 数据库会话
+        required_tokens: 所需令牌数量，默认为1
+        
+    Returns:
+        Optional[models.ApiKey]: 可用的 API Key，如果没有则返回 None
+    """
+    logger.info(f"Attempting to get API key using token bucket algorithm, required tokens: {required_tokens}")
+    
+    active_keys = get_active_api_keys(db)
+    if not active_keys:
+        logger.warning("No active API keys found")
+        return None
+    
+    active_key_ids = [key.id for key in active_keys]
+    
+    available_key_ids = token_bucket_manager.get_available_api_keys(active_key_ids, required_tokens)
+    
+    if not available_key_ids:
+        logger.warning("No API keys have sufficient tokens available")
+        return None
+    
+    selected_key_id = _select_best_api_key(available_key_ids)
+    
+    if token_bucket_manager.consume_token(selected_key_id, required_tokens):
+        selected_key = next((key for key in active_keys if key.id == selected_key_id), None)
+        if selected_key:
+            logger.info(f"Successfully selected API key {selected_key_id} using token bucket")
+            return selected_key
+    
+    logger.warning(f"Failed to consume tokens for selected API key {selected_key_id}")
+    return None
+
+
+def _select_best_api_key(available_key_ids: List[int]) -> int:
+    """
+    从可用的 API key 中选择最佳的一个。
+    当前实现使用加权随机选择，令牌越多权重越高。
+    
+    Args:
+        available_key_ids: 可用的 API key ID 列表
+        
+    Returns:
+        int: 选中的 API key ID
+    """
+    if len(available_key_ids) == 1:
+        return available_key_ids[0]
+    
+    key_weights = []
+    for key_id in available_key_ids:
+        tokens = token_bucket_manager.get_available_tokens(key_id)
+        key_weights.append(max(tokens, 0.1))
+    
+    total_weight = sum(key_weights)
+    if total_weight <= 0:
+        return random.choice(available_key_ids)
+    
+    random_value = random.uniform(0, total_weight)
+    cumulative_weight = 0
+    
+    for i, weight in enumerate(key_weights):
+        cumulative_weight += weight
+        if random_value <= cumulative_weight:
+            return available_key_ids[i]
+    
+    return available_key_ids[-1]
+
+
+def get_active_api_key_with_token_bucket(db: Session) -> Optional[models.ApiKey]:
+    """
+    使用 token bucket 算法获取一个可用的活跃 API Key。
+    这是类似于 get_random_active_api_key_from_db 的主要入口方法。
+    如果 token bucket 方法失败，会自动回退到随机选择。
+    
+    Args:
+        db: 数据库会话
+        
+    Returns:
+        Optional[models.ApiKey]: 可用的 API Key，如果没有则返回 None
+    """
+    logger.info("Attempting to get active API key using token bucket algorithm.")
+    
+    try:
+        api_key = get_api_key_with_token_bucket(db, required_tokens=1)
+        if api_key:
+            logger.info(f"Successfully retrieved API key {api_key.id} using token bucket")
+            return api_key
+        
+        logger.info("Token bucket method failed, falling back to random selection")
+        
+        fallback_key = get_random_active_api_key_from_db(db)
+        if fallback_key:
+            logger.info(f"Fallback: retrieved API key {fallback_key.id} using random selection")
+        else:
+            logger.warning("No active API keys available")
+        
+        return fallback_key
+        
+    except Exception as e:
+        logger.error(f"Error in token bucket API key selection: {e}")
+        return get_random_active_api_key_from_db(db)
+
+
+def get_api_key_with_fallback(db: Session, required_tokens: int = 1, use_token_bucket: bool = True) -> Optional[models.ApiKey]:
+    """
+    获取 API Key 的高级入口函数，支持 token bucket 和传统随机选择的回退机制。
+    
+    Args:
+        db: 数据库会话
+        required_tokens: 所需令牌数量
+        use_token_bucket: 是否使用 token bucket 算法
+        
+    Returns:
+        Optional[models.ApiKey]: 可用的 API Key
+    """
+    if use_token_bucket:
+        api_key = get_api_key_with_token_bucket(db, required_tokens)
+        if api_key:
+            return api_key
+        
+        logger.info("Token bucket method failed, falling back to random selection")
+    
+    return get_random_active_api_key_from_db(db)
+
+
+def configure_api_key_token_bucket(api_key_id: int, capacity: int = None, refill_rate: float = None):
+    """
+    配置指定 API Key 的 token bucket 参数。
+    
+    Args:
+        api_key_id: API Key ID
+        capacity: 令牌桶容量
+        refill_rate: 令牌补充速率（每秒）
+    """
+    token_bucket_manager.configure_bucket(api_key_id, capacity, refill_rate)
+    logger.info(f"Configured token bucket for API key {api_key_id}")
+
+
+def reset_api_key_token_bucket(api_key_id: int):
+    """
+    重置指定 API Key 的 token bucket（填满令牌）。
+    
+    Args:
+        api_key_id: API Key ID
+    """
+    token_bucket_manager.reset_bucket(api_key_id)
+    logger.info(f"Reset token bucket for API key {api_key_id}")
+
+
+def get_api_key_token_info(api_key_id: int) -> dict:
+    """
+    获取指定 API Key 的 token bucket 信息。
+    
+    Args:
+        api_key_id: API Key ID
+        
+    Returns:
+        dict: Token bucket 信息
+    """
+    return token_bucket_manager.get_bucket_info(api_key_id)
+
+
+def batch_configure_token_buckets(db: Session, capacity: int = 10, refill_rate: float = 1.0):
+    """
+    批量配置所有活跃 API Key 的 token bucket。
+    
+    Args:
+        db: 数据库会话
+        capacity: 令牌桶容量
+        refill_rate: 令牌补充速率（每秒）
+    """
+    active_keys = get_active_api_keys(db)
+    configured_count = 0
+    
+    for api_key in active_keys:
+        try:
+            token_bucket_manager.configure_bucket(api_key.id, capacity, refill_rate)
+            configured_count += 1
+        except Exception as e:
+            logger.error(f"Failed to configure token bucket for API key {api_key.id}: {e}")
+    
+    logger.info(f"Batch configured token buckets for {configured_count} API keys")
+    return configured_count
+
+
+def cleanup_token_buckets():
+    """
+    清理过期的 token bucket 数据。
+    """
+    try:
+        token_bucket_manager.cleanup_expired_buckets()
+        logger.info("Token bucket cleanup completed")
+    except Exception as e:
+        logger.error(f"Token bucket cleanup failed: {e}")

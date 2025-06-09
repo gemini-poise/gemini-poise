@@ -94,7 +94,7 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
             status_code=401, detail="Invalid or missing internal API key."
         )
 
-    target_api_key_obj = crud.api_keys.get_random_active_api_key_from_db(db)
+    target_api_key_obj = crud.api_keys.get_active_api_key_with_token_bucket(db)
     if not target_api_key_obj:
         raise HTTPException(
             status_code=503, detail="No active target API keys available."

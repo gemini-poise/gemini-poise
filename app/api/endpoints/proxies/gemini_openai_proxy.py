@@ -109,7 +109,7 @@ class KeyManager:
     @staticmethod
     def get_active_api_key(db):
         """获取活跃的 API 密钥"""
-        key_obj = crud.api_keys.get_random_active_api_key_from_db(db)
+        key_obj = crud.api_keys.get_active_api_key_with_token_bucket(db)
         if not key_obj:
             raise ProxyError(503, "没有可用的活跃目标 API 密钥。")
         return key_obj
