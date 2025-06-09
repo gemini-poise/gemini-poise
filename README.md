@@ -232,6 +232,7 @@ Please ensure you have Docker and Docker Compose installed on your system.
 - [x] Logic for randomly fetching available API Keys
 - [x] API request forwarding logic
 - [x] Logic for updating Key usage status
+- [x] Token bucket
 
 ### Phase 4: Frontend Foundation
 - [x] Frontend project initialization and dependency installation

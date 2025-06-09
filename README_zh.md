@@ -232,6 +232,7 @@ gemini-poise/
 - [x] 实现随机获取可用 API Key 的逻辑
 - [x] 实现 API 请求转发逻辑
 - [x] 实现 Key 使用状态更新逻辑
+- [x] 实现 token bucket
 
 ### 第四阶段：前端基础
 - [x] 前端项目初始化与依赖安装
