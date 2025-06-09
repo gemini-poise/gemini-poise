@@ -15,6 +15,7 @@ services:
     restart: always
 
   frontend:
+    image: alterem/gemini-poise-frontend
     ports:
       - "8001:80"
     environment:
