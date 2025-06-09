@@ -2,7 +2,7 @@ services:
   backend:
     image: alterem/gemini-poise
     ports:
-      - "8000:8000"
+      - "8100:8000"
     volumes:
       - ./.env:/app/.env
       - ./data/:/data
@@ -17,7 +17,7 @@ services:
   frontend:
     image: alterem/gemini-poise-frontend
     ports:
-      - "8001:80"
+      - "8101:80"
     environment:
       - TZ=Asia/Shanghai
     restart: always
