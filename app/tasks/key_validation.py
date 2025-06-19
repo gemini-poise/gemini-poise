@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, List, Dict, Type, TypeVar
+from typing import List, Dict, Type, TypeVar
 
 import httpx
 from sqlalchemy.orm import Session
@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ..api.endpoints.proxies.base_proxy import update_key_status_based_on_response
 from ..crud import api_keys as crud_api_keys
 from ..crud import config as crud_config
+from ..core.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -40,13 +41,13 @@ def _get_config_value_with_default(
     return default_value
 
 
-def validate_api_key_task(session_factory: Callable[[], Session]):
+def validate_api_key_task():
     """
     Scheduled task: Checks the validity of API Keys in the database.
     Uses the update_key_status_based_on_response helper function for status updates.
     """
     logger.info("Starting API Key validation task...")
-    db = session_factory()
+    db = SessionLocal()
     task_httpx_client = None
     try:
         max_failed_count = _get_config_value_with_default(

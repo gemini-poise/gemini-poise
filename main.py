@@ -62,7 +62,6 @@ async def lifespan(app: FastAPI):
             seconds=task_interval_seconds,
             id="key_validation_task",
             replace_existing=True,
-            args=[SessionLocal],
         )
         logger.info(
             f"API Key validation task added to scheduler (interval: {task_interval_seconds} seconds)."
