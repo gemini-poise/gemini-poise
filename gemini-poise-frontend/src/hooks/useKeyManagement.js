@@ -244,7 +244,7 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       return;
     }
 
-    setLoading(true);
+    const hideLoading = message.loading(t('apiKeys.activatingKeys'), 0);
     try {
       const updatePromises = validKeyValues.map(async (keyValue) => {
         const foundKey = keys.find(k => k.key_value === keyValue);
@@ -261,7 +261,7 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       console.error("Failed to bulk activate API keys:", error);
       message.error(t('apiKeys.failedToActivateKeys'));
     } finally {
-      setLoading(false);
+      hideLoading();
     }
   };
 
