@@ -141,7 +141,11 @@
         "failedToBulkCheck": "Failed to bulk check API keys.",
         "keyIsValid": "API Key is valid!",
         "keyIsInvalid": "API Key is invalid: {{message}}",
-        "failedToCheckKey": "Failed to check API key: {{message}}"
+        "failedToCheckKey": "Failed to check API key: {{message}}",
+        "activateValidKeys": "Activate Valid Keys",
+        "noValidKeysToActivate": "No valid API keys to activate.",
+        "keysActivatedSuccess": "{{count}} API Key(s) activated successfully.",
+        "failedToActivateKeys": "Failed to activate API Key(s)."
     },
     "config": {
         "title": "Configuration",

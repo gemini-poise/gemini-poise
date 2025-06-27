@@ -238,6 +238,33 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
     }
   };
 
+  const handleBulkActivateKeys = async (validKeyValues) => {
+    if (validKeyValues.length === 0) {
+      message.warning(t('apiKeys.noValidKeysToActivate'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updatePromises = validKeyValues.map(async (keyValue) => {
+        const foundKey = keys.find(k => k.key_value === keyValue);
+        if (foundKey) {
+          await updateApiKey(foundKey.id, { ...foundKey, status: 'active' });
+        }
+      });
+      await Promise.all(updatePromises);
+      message.success(t('apiKeys.keysActivatedSuccess', { count: validKeyValues.length }));
+      setBulkCheckModalVisible(false);
+      setSelectedRowKeys([]);
+      await fetchKeys();
+    } catch (error) {
+      console.error("Failed to bulk activate API keys:", error);
+      message.error(t('apiKeys.failedToActivateKeys'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     keys,
     loading,
@@ -271,5 +298,6 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
     bulkChecking,
     handleBulkCheckKeys,
     handleCheckSingleKey,
+    handleBulkActivateKeys,
   };
 };

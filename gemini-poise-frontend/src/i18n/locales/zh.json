@@ -141,7 +141,11 @@
         "failedToBulkCheck": "批量检查API密钥失败。",
         "keyIsValid": "API密钥有效！",
         "keyIsInvalid": "API密钥无效：{{message}}",
-        "failedToCheckKey": "检查API密钥失败：{{message}}"
+        "failedToCheckKey": "检查API密钥失败：{{message}}",
+        "activateValidKeys": "一键激活成功Key",
+        "noValidKeysToActivate": "没有可激活的有效API密钥。",
+        "keysActivatedSuccess": "成功激活了{{count}}个API密钥。",
+        "failedToActivateKeys": "激活API密钥失败。"
     },
     "config": {
         "title": "配置",

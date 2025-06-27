@@ -43,6 +43,7 @@ const KeyManagementPage = () => {
         bulkChecking,
         handleBulkCheckKeys,
         handleCheckSingleKey,
+        handleBulkActivateKeys,
     } = useKeyManagement(form, bulkAddForm, t);
 
     const rowSelection = {
@@ -237,15 +238,28 @@ const KeyManagementPage = () => {
                                         return foundKey ? foundKey.id : null;
                                     })
                                     .filter(id => id !== null);
-                                handleBulkDelete(invalidKeyIds, t('apiKeys.confirmDeleteInvalidError'));
-                            }}
-                            disabled={bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
-                        >
-                            {t('apiKeys.deleteInvalidErrorKeys')}
-                        </Button>,
-                        <Button key="close" onClick={() => setBulkCheckModalVisible(false)}>
-                            {t('apiKeys.close')}
-                        </Button>,
+                                  handleBulkDelete(invalidKeyIds, t('apiKeys.confirmDeleteInvalidError'));
+                              }}
+                              disabled={bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
+                          >
+                              {t('apiKeys.deleteInvalidErrorKeys')}
+                          </Button>,
+                          <Button
+                              key="activateValid"
+                              type="primary"
+                              onClick={() => {
+                                  const validKeyValues = bulkCheckResults
+                                      .filter(result => result.status === 'valid')
+                                      .map(result => result.key_value);
+                                  handleBulkActivateKeys(validKeyValues);
+                              }}
+                              disabled={bulkCheckResults.filter(r => r.status === 'valid').length === 0}
+                          >
+                              {t('apiKeys.activateValidKeys')}
+                          </Button>,
+                          <Button key="close" onClick={() => setBulkCheckModalVisible(false)}>
+                              {t('apiKeys.close')}
+                          </Button>,
                     ]}
                     width={1000}
                 >
