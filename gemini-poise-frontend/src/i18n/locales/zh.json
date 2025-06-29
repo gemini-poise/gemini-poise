@@ -145,6 +145,7 @@
         "activateValidKeys": "一键激活成功Key",
         "noValidKeysToActivate": "没有可激活的有效API密钥。",
         "keysActivatedSuccess": "成功激活了{{count}}个API密钥。",
+        "activatingKeys": "正在激活密钥...",
         "failedToActivateKeys": "激活API密钥失败。"
     },
     "config": {

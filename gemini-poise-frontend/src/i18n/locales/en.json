@@ -145,6 +145,7 @@
         "activateValidKeys": "Activate Valid Keys",
         "noValidKeysToActivate": "No valid API keys to activate.",
         "keysActivatedSuccess": "{{count}} API Key(s) activated successfully.",
+        "activatingKeys": "Activating keys...",
         "failedToActivateKeys": "Failed to activate API Key(s)."
     },
     "config": {
