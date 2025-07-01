@@ -187,7 +187,13 @@ def get_api_keys_paginated(
 
     paginated_query = (
         query.order_by(
-            case((models.ApiKey.status == "active", 0), else_=1), models.ApiKey.id.asc()
+            case(
+                (models.ApiKey.status == "active", 0),
+                (models.ApiKey.status == "exhausted", 1),
+                (models.ApiKey.status == "error", 2),
+                else_=3
+            ),
+            models.ApiKey.id.asc()
         )
         .offset(skip)
         .limit(limit)
@@ -205,15 +211,15 @@ def get_key_statistics(db: Session) -> schemas.KeyStatistics:
     logger.info("Attempting to get API key statistics.")
 
     total_keys = db.query(models.ApiKey).count()
-    valid_keys = db.query(models.ApiKey).filter(
-        (models.ApiKey.status == "active") | (models.ApiKey.status == "exhausted")
-    ).count()
-    invalid_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "error").count()
+    active_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "active").count()
+    exhausted_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "exhausted").count()
+    error_keys = db.query(models.ApiKey).filter(models.ApiKey.status == "error").count()
 
     statistics = schemas.KeyStatistics(
         total_keys=total_keys,
-        valid_keys=valid_keys,
-        invalid_keys=invalid_keys,
+        active_keys=active_keys,
+        exhausted_keys=exhausted_keys,
+        error_keys=error_keys,
     )
     logger.info(f"Retrieved API key statistics: {statistics.model_dump_json()}")
     return statistics

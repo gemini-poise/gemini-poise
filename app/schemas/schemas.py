@@ -125,8 +125,9 @@ class PaginatedApiKeyResponse(PaginatedResponse[ApiKey]):
 # --- Key Statistics Schemas ---
 class KeyStatistics(BaseModel):
     total_keys: int = Field(0, description="Total number of API keys")
-    valid_keys: int = Field(0, description="Number of active API keys")
-    invalid_keys: int = Field(0, description="Number of error API keys")
+    active_keys: int = Field(0, description="Number of active API keys")
+    exhausted_keys: int = Field(0, description="Number of exhausted API keys")
+    error_keys: int = Field(0, description="Number of error API keys")
 
 
 # --- API Call Statistics Schemas ---

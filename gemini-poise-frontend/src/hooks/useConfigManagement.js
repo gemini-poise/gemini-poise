@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { App } from 'antd';
 import { getAllConfig, bulkSaveConfig } from '../api/api';
 
@@ -18,6 +18,15 @@ export const useConfigManagement = (configDefinitions, t) => {
         }
         return acc;
       }, {});
+
+      const activeInterval = formValues['key_validation_active_interval_seconds'];
+      if (!formValues['key_validation_exhausted_interval_seconds']) {
+        formValues['key_validation_exhausted_interval_seconds'] = activeInterval;
+      }
+      // if (!formValues['key_validation_error_interval_seconds']) {
+      //   formValues['key_validation_error_interval_seconds'] = '0';
+      // }
+
       form.setFieldsValue(formValues);
     } catch (error) {
       console.error("Failed to fetch config:", error);

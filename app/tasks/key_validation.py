@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Type, TypeVar
+from typing import List, Dict, Type, TypeVar, Optional
 
 import httpx
 from sqlalchemy.orm import Session
@@ -41,34 +41,28 @@ def _get_config_value_with_default(
     return default_value
 
 
-def validate_api_key_task():
+def _perform_key_validation(
+    db: Session,
+    status_filter: Optional[str] = None,
+    max_failed_count: int = 3,
+    timeout_seconds: float = 10.0,
+):
     """
-    Scheduled task: Checks the validity of API Keys in the database.
-    Uses the update_key_status_based_on_response helper function for status updates.
+    Helper function to perform API Key validation for a given status filter.
     """
-    logger.info("Starting API Key validation task...")
-    db = SessionLocal()
     task_httpx_client = None
     try:
-        max_failed_count = _get_config_value_with_default(
-            db, "key_validation_max_failed_count", 3, int
-        )
-        timeout_seconds = _get_config_value_with_default(
-            db, "key_validation_timeout_seconds", 10.0, float
-        )
+        query = db.query(crud_api_keys.models.ApiKey)
+        if status_filter:
+            query = query.filter(crud_api_keys.models.ApiKey.status == status_filter)
+        else:
+            # Default behavior for the original task: exclude 'error' keys
+            query = query.filter(crud_api_keys.models.ApiKey.status != "error")
 
-        logger.info(
-            f"Task config: Max Failed Count = {max_failed_count}, Timeout = {timeout_seconds}s."
-        )
+        keys_to_validate = query.all()
 
-        task_httpx_client = httpx.Client(timeout=timeout_seconds)
-
-        all_keys = db.query(crud_api_keys.models.ApiKey).filter(
-            crud_api_keys.models.ApiKey.status != "error"
-        ).all()
-
-        if not all_keys:
-            logger.info("No non-error API keys found in database to validate.")
+        if not keys_to_validate:
+            logger.info(f"No API keys with status '{status_filter or 'non-error'}' found in database to validate.")
             return
 
         config = crud_config.get_config_by_key(db, "target_api_url")
@@ -87,13 +81,11 @@ def validate_api_key_task():
             f"{target_url}/models/{model_name}:streamGenerateContent?alt=sse"
         )
 
+        task_httpx_client = httpx.Client(timeout=timeout_seconds)
+
         validated_count = 0
         invalidated_count = 0
-        for key in all_keys:
-            # if key.status == "exhausted":
-            #     logger.info(f"Skipping validation for exhausted key ID {key.id}.")
-            #     continue
-
+        for key in keys_to_validate:
             try:
                 headers = {
                     "accept": "*/*",
@@ -152,19 +144,73 @@ def validate_api_key_task():
                 invalidated_count += 1
 
         logger.info(
-            f"API Key validation task finished. Validated: {validated_count}, Invalidated: {invalidated_count}."
+            f"API Key validation for status '{status_filter or 'non-error'}' finished. Validated: {validated_count}, Invalidated: {invalidated_count}."
         )
 
     except Exception as e:
         logger.error(
-            f"Error during API Key validation task execution: {e}", exc_info=True
+            f"Error during API Key validation task execution for status '{status_filter or 'non-error'}': {e}", exc_info=True
         )
         db.rollback()
     finally:
         db.close()
         if task_httpx_client:
             task_httpx_client.close()
-            logger.info("Task httpx client closed.")
+            logger.info(f"Task httpx client for status '{status_filter or 'non-error'}' closed.")
+
+
+def validate_active_api_keys_task():
+    """
+    Scheduled task: Checks the validity of 'active' API Keys.
+    """
+    logger.info("Starting 'active' API Key validation task...")
+    db = SessionLocal()
+    try:
+        max_failed_count = _get_config_value_with_default(
+            db, "key_validation_max_failed_count", 3, int
+        )
+        timeout_seconds = _get_config_value_with_default(
+            db, "key_validation_timeout_seconds", 10.0, float
+        )
+        _perform_key_validation(db, "active", max_failed_count, timeout_seconds)
+    finally:
+        db.close()
+
+
+def validate_exhausted_api_keys_task():
+    """
+    Scheduled task: Checks the validity of 'exhausted' API Keys.
+    """
+    logger.info("Starting 'exhausted' API Key validation task...")
+    db = SessionLocal()
+    try:
+        max_failed_count = _get_config_value_with_default(
+            db, "key_validation_max_failed_count", 3, int
+        )
+        timeout_seconds = _get_config_value_with_default(
+            db, "key_validation_timeout_seconds", 10.0, float
+        )
+        _perform_key_validation(db, "exhausted", max_failed_count, timeout_seconds)
+    finally:
+        db.close()
+
+
+def validate_error_api_keys_task():
+    """
+    Scheduled task: Checks the validity of 'error' API Keys.
+    """
+    logger.info("Starting 'error' API Key validation task...")
+    db = SessionLocal()
+    try:
+        max_failed_count = _get_config_value_with_default(
+            db, "key_validation_max_failed_count", 3, int
+        )
+        timeout_seconds = _get_config_value_with_default(
+            db, "key_validation_timeout_seconds", 10.0, float
+        )
+        _perform_key_validation(db, "error", max_failed_count, timeout_seconds)
+    finally:
+        db.close()
 
 
 def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:

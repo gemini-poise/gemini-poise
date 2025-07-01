@@ -1,10 +1,14 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, status
 
 from ... import crud
 from ...core.scheduler_config import scheduler, logger
-from ...tasks.key_validation import validate_api_key_task
+from ...tasks.key_validation import (
+    validate_active_api_keys_task,
+    validate_exhausted_api_keys_task,
+    validate_error_api_keys_task,
+)
 from ...core.database import SessionLocal
 
 from ...core.security import user_dependency, db_dependency
@@ -20,53 +24,59 @@ from ...schemas.schemas import (
 router = APIRouter(prefix="/config", tags=["Config"])
 
 
-def _reschedule_key_validation_task(interval_value: str, source: str):
+def _reschedule_task(
+    task_id: str, task_func, interval_value: Optional[str], default_interval: int, source: str
+):
     """
-    Helper function to reschedule the API Key validation task.
+    Helper function to reschedule a specific API Key validation task.
     """
     try:
-        new_interval_seconds = int(interval_value)
-        if new_interval_seconds <= 0:
-            logger.warning(
-                f"Invalid new task interval '{interval_value}' from {source}, using default 300 seconds."
-            )
-            new_interval_seconds = 300
+        new_interval_seconds = default_interval
+        if interval_value is not None:
+            try:
+                parsed_interval = int(interval_value)
+                if parsed_interval > 0:
+                    new_interval_seconds = parsed_interval
+                else:
+                    logger.warning(
+                        f"Invalid interval '{interval_value}' for task '{task_id}' from {source}, using default {default_interval} seconds."
+                    )
+            except ValueError:
+                logger.warning(
+                    f"Invalid interval format '{interval_value}' for task '{task_id}' from {source}, using default {default_interval} seconds."
+                )
 
-        if scheduler.get_job("key_validation_task"):
-            scheduler.reschedule_job(
-                "key_validation_task", trigger="interval", seconds=new_interval_seconds
-            )
-            logger.info(
-                f"API Key validation task rescheduled to {new_interval_seconds} seconds via {source}."
-            )
+        if new_interval_seconds > 0:
+            if scheduler.get_job(task_id):
+                scheduler.reschedule_job(
+                    task_id, trigger="interval", seconds=new_interval_seconds
+                )
+                logger.info(
+                    f"Task '{task_id}' rescheduled to {new_interval_seconds} seconds via {source}."
+                )
+            else:
+                scheduler.add_job(
+                    task_func,
+                    "interval",
+                    seconds=new_interval_seconds,
+                    id=task_id,
+                    replace_existing=True,
+                )
+                logger.info(
+                    f"Task '{task_id}' added to scheduler (interval: {new_interval_seconds} seconds) via {source}."
+                )
         else:
-            scheduler.add_job(
-                validate_api_key_task,
-                "interval",
-                seconds=new_interval_seconds,
-                id="key_validation_task",
-                replace_existing=True,
-                args=[SessionLocal],
-            )
-            logger.info(
-                f"API Key validation task added to scheduler (interval: {new_interval_seconds} seconds) via {source}."
-            )
+            if scheduler.get_job(task_id):
+                scheduler.remove_job(task_id)
+                logger.info(f"Task '{task_id}' removed from scheduler as interval is 0.")
 
-    except ValueError:
-        logger.error(
-            f"Invalid value for key_validation_interval_seconds from {source}: {interval_value}. Must be an integer."
-        )
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid interval value from {source}. Must be an integer.",
-        )
     except Exception as e:
         logger.error(
-            f"Error rescheduling API Key validation task from {source}: {e}",
+            f"Error rescheduling task '{task_id}' from {source}: {e}",
             exc_info=True,
         )
         raise HTTPException(
-            status_code=500, detail=f"Failed to reschedule task from {source}."
+            status_code=500, detail=f"Failed to reschedule task '{task_id}' from {source}."
         )
 
 
@@ -131,9 +141,6 @@ async def update_config_by_key(
     if not updated:
         raise HTTPException(status_code=404, detail=f"Config key '{key}' not found")
 
-    if key == "key_validation_interval_seconds":
-        _reschedule_key_validation_task(config_update.value, "update_config_by_key")
-
     updated_config = crud.config.get_config_by_key(db, key)
     return ConfigItem.model_validate(updated_config)
 
@@ -166,9 +173,34 @@ async def bulk_save_config(
     crud.config.bulk_save_config_items(db, request_data.items, current_user.id)
     db.commit()
 
-    for item in request_data.items:
-        if item.key == "key_validation_interval_seconds":
-            _reschedule_key_validation_task(item.value, "bulk_save")
-            break
+    all_configs = {item.key: item.value for item in crud.config.get_all_config(db)}
+
+    active_interval = int(all_configs.get("key_validation_active_interval_seconds", 300))
+    exhausted_interval = all_configs.get("key_validation_exhausted_interval_seconds")
+    error_interval = all_configs.get("key_validation_error_interval_seconds")
+
+    _reschedule_task(
+        "key_validation_active_task",
+        validate_active_api_keys_task,
+        str(active_interval),
+        300,
+        "bulk_save",
+    )
+
+    _reschedule_task(
+        "key_validation_exhausted_task",
+        validate_exhausted_api_keys_task,
+        exhausted_interval,
+        active_interval,
+        "bulk_save",
+    )
+
+    _reschedule_task(
+        "key_validation_error_task",
+        validate_error_api_keys_task,
+        error_interval,
+        0,
+        "bulk_save",
+    )
 
     return {"detail": f"Successfully processed {len(request_data.items)} config items."}

@@ -26,7 +26,7 @@ ChartJS.register(
 
 const DashboardPage = () => {
   const { t } = useTranslation();
-  const { totalKeys, validKeys, invalidKeys, loadingKeys, errorKeys } = useKeyStatistics();
+  const { totalKeys, activeKeys, exhaustedKeys, errorKeys, loadingKeys } = useKeyStatistics();
   const { callsLast1Minute, callsLast1Hour, callsLast24Hours, monthlyUsage, loadingCalls, errorCalls } = useApiCallStatistics();
   const { apiCallLogs, loadingApiCallLogs, errorApiCallLogs } = useApiCallLogsByMinute(24);
 
@@ -56,19 +56,20 @@ const DashboardPage = () => {
           >
             {errorKeys && <Alert message={errorKeys} type="error" showIcon />}
             <Statistic
-              title={t('dashboard.totalKeys')}
-              value={totalKeys}
-              formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
-            />
-            <Statistic
-              title={t('dashboard.validKeys')}
-              value={validKeys}
+              title={t('dashboard.activeKeys')}
+              value={activeKeys}
               valueStyle={{ color: '#3f8600' }}
               formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
             />
             <Statistic
-              title={t('dashboard.invalidKeys')}
-              value={invalidKeys}
+              title={t('dashboard.exhaustedKeys')}
+              value={exhaustedKeys}
+              valueStyle={{ color: '#faad14' }}
+              formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
+            />
+            <Statistic
+              title={t('dashboard.errorKeys')}
+              value={errorKeys}
               valueStyle={{ color: '#cf1322' }}
               formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
             />

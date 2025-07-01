@@ -8,7 +8,9 @@ const { Title } = Typography;
 const getConfigDefinitions = (t) => [
     { "k": "target_api_url", "l": t('config.targetApiUrl'), "required": true, "type": "text" },
     { "k": "api_token", "l": t('config.apiToken'), "required": true, "type": "password" },
-    { "k": "key_validation_interval_seconds", "l": t('config.keyValidationInterval'), "required": true, "type": "number" },
+    { "k": "key_validation_active_interval_seconds", "l": t('config.keyValidationActiveInterval'), "required": true, "type": "number" },
+    { "k": "key_validation_exhausted_interval_seconds", "l": t('config.keyValidationExhaustedInterval'), "required": false, "type": "number" },
+    { "k": "key_validation_error_interval_seconds", "l": t('config.keyValidationErrorInterval'), "required": false, "type": "number" },
     { "k": "key_validation_max_failed_count", "l": t('config.keyValidationMaxFailedCount'), "required": true, "type": "number" },
     { "k": "key_validation_timeout_seconds", "l": t('config.keyValidationTimeout'), "required": true, "type": "number" },
     { "k": "key_validation_model_name", "l": t('config.keyValidationModelName'), "required": false, "type": "text" },

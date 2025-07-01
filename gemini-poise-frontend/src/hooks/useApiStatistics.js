@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getKeyStatistics, getApiCallStatistics, getApiCallLogsByMinute } from '../api/api';
 
 export const useKeyStatistics = () => {
-  const [keyStatistics, setKeyStatistics] = useState({ totalKeys: 0, validKeys: 0, invalidKeys: 0 });
+  const [keyStatistics, setKeyStatistics] = useState({ totalKeys: 0, activeKeys: 0, exhaustedKeys: 0, errorKeys: 0 });
   const [loadingKeys, setLoadingKeys] = useState(true);
   const [errorKeys, setErrorKeys] = useState(null);
 
@@ -13,8 +13,9 @@ export const useKeyStatistics = () => {
         const response = await getKeyStatistics();
         setKeyStatistics({
           totalKeys: response.data.total_keys,
-          validKeys: response.data.valid_keys,
-          invalidKeys: response.data.invalid_keys,
+          activeKeys: response.data.active_keys,
+          exhaustedKeys: response.data.exhausted_keys,
+          errorKeys: response.data.error_keys,
         });
         setErrorKeys(null);
       } catch (err) {
