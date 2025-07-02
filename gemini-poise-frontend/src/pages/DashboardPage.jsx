@@ -26,7 +26,7 @@ ChartJS.register(
 
 const DashboardPage = () => {
   const { t } = useTranslation();
-  const { totalKeys, activeKeys, exhaustedKeys, errorKeys, loadingKeys } = useKeyStatistics();
+  const { totalKeys, activeKeys, exhaustedKeys, backendErrorKeys, loadingKeys, errorFetchingKeys } = useKeyStatistics();
   const { callsLast1Minute, callsLast1Hour, callsLast24Hours, monthlyUsage, loadingCalls, errorCalls } = useApiCallStatistics();
   const { apiCallLogs, loadingApiCallLogs, errorApiCallLogs } = useApiCallLogsByMinute(24);
 
@@ -50,28 +50,28 @@ const DashboardPage = () => {
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>{t('dashboard.keyStatistics')}</span>
-                <span>{t('dashboard.total')}: {renderStatisticValue(totalKeys, loadingKeys, errorKeys)}</span>
+                <span>{t('dashboard.total')}: {renderStatisticValue(totalKeys, loadingKeys, errorFetchingKeys)}</span>
               </div>
             }
           >
-            {errorKeys && <Alert message={errorKeys} type="error" showIcon />}
+            {errorFetchingKeys && <Alert message={errorFetchingKeys} type="error" showIcon />}
             <Statistic
               title={t('dashboard.activeKeys')}
               value={activeKeys}
               valueStyle={{ color: '#3f8600' }}
-              formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
+              formatter={(value) => renderStatisticValue(value, loadingKeys, errorFetchingKeys)}
             />
             <Statistic
               title={t('dashboard.exhaustedKeys')}
               value={exhaustedKeys}
               valueStyle={{ color: '#faad14' }}
-              formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
+              formatter={(value) => renderStatisticValue(value, loadingKeys, errorFetchingKeys)}
             />
             <Statistic
               title={t('dashboard.errorKeys')}
-              value={errorKeys}
+              value={backendErrorKeys}
               valueStyle={{ color: '#cf1322' }}
-              formatter={(value) => renderStatisticValue(value, loadingKeys, errorKeys)}
+              formatter={(value) => renderStatisticValue(value, loadingKeys, errorFetchingKeys)}
             />
           </Card>
         </Col>

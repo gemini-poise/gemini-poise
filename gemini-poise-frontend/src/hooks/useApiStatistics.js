@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { getKeyStatistics, getApiCallStatistics, getApiCallLogsByMinute } from '../api/api';
 
 export const useKeyStatistics = () => {
-  const [keyStatistics, setKeyStatistics] = useState({ totalKeys: 0, activeKeys: 0, exhaustedKeys: 0, errorKeys: 0 });
+  const [keyStatistics, setKeyStatistics] = useState({ totalKeys: 0, activeKeys: 0, exhaustedKeys: 0, backendErrorKeys: 0 });
   const [loadingKeys, setLoadingKeys] = useState(true);
-  const [errorKeys, setErrorKeys] = useState(null);
+  const [errorFetchingKeys, setErrorFetchingKeys] = useState(null);
 
   useEffect(() => {
     const fetchKeyStatistics = async () => {
@@ -15,12 +15,12 @@ export const useKeyStatistics = () => {
           totalKeys: response.data.total_keys,
           activeKeys: response.data.active_keys,
           exhaustedKeys: response.data.exhausted_keys,
-          errorKeys: response.data.error_keys,
+          backendErrorKeys: response.data.error_keys,
         });
-        setErrorKeys(null);
+        setErrorFetchingKeys(null);
       } catch (err) {
         console.error("Error fetching key statistics:", err);
-        setErrorKeys("Failed to load key statistics.");
+        setErrorFetchingKeys("Failed to load key statistics.");
       } finally {
         setLoadingKeys(false);
       }
@@ -29,7 +29,7 @@ export const useKeyStatistics = () => {
     fetchKeyStatistics();
   }, []);
 
-  return { ...keyStatistics, loadingKeys, errorKeys };
+  return { ...keyStatistics, loadingKeys, errorFetchingKeys };
 };
 
 export const useApiCallStatistics = () => {
