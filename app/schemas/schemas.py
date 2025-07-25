@@ -106,7 +106,7 @@ class ApiKeyBulkCheckResponse(BaseModel):
 # 定义分页请求 Schema (添加筛选参数)
 class ApiKeyPaginationParams(BaseModel):
     page: int = Field(1, ge=1, description="Page number (starting from 1)")
-    page_size: int = Field(50, ge=1, le=100, description="Items per page (max 100)")
+    page_size: int = Field(50, ge=1, le=1000, description="Items per page (max 1000)")
     # 添加筛选参数
     search_key: Optional[str] = Field(None, description="Search by key value")
     min_failed_count: Optional[int] = Field(
