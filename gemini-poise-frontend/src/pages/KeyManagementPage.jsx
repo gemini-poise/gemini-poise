@@ -218,7 +218,7 @@ const KeyManagementPage = () => {
                         pageSize: pagination.pageSize,
                         total: pagination.total,
                         showSizeChanger: true,
-                        pageSizeOptions: ['10', '20', '50', '100'],
+                        pageSizeOptions: ['10', '50', '100', '500', '1000'],
                     }}
                     onChange={handleTableChange}
                 />

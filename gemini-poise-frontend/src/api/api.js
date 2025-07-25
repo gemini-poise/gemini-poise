@@ -70,7 +70,9 @@ export const bulkDeleteApiKeys = (data) => {
 };
 
 export const bulkCheckApiKeys = (key_ids) => {
-  return api.post('/api_keys/bulk-check', { key_ids });
+  return api.post('/api_keys/bulk-check', { key_ids }, {
+    timeout: 120000
+  });
 };
 
 export const checkApiKey = (key_id) => {
