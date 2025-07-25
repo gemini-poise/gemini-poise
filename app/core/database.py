@@ -45,23 +45,23 @@ def optimize_sqlite():
     """应用SQLite特定的PRAGMA优化"""
     if settings.DATABASE_TYPE.lower() == "sqlite":
         logger.info("Applying SQLite optimizations...")
-        with engine.connect() as conn:
-            # 启用WAL模式，提高并发性能
-            conn.execute("PRAGMA journal_mode=WAL")
-            # 启用内存映射，提高读取性能（设置为30GB，根据实际内存调整）
-            conn.execute("PRAGMA mmap_size=30000000000")
-            # 降低同步级别，提高写入性能（可能略微降低崩溃安全性）
-            conn.execute("PRAGMA synchronous=NORMAL")
-            # 增加缓存大小（约20MB）
-            conn.execute("PRAGMA cache_size=-20000")
-            # 使用内存存储临时表和索引
-            conn.execute("PRAGMA temp_store=MEMORY")
-            # 设置较大的页面大小，减少I/O操作
-            conn.execute("PRAGMA page_size=4096")
-            # 启用自动清理
-            conn.execute("PRAGMA auto_vacuum=INCREMENTAL")
-            # 设置较大的批量提交大小
-            conn.execute("PRAGMA busy_timeout=5000")
+        # with engine.connect() as conn:
+        #     # 启用WAL模式，提高并发性能
+        #     conn.execute("PRAGMA journal_mode=WAL")
+        #     # 启用内存映射，提高读取性能（设置为30GB，根据实际内存调整）
+        #     conn.execute("PRAGMA mmap_size=30000000000")
+        #     # 降低同步级别，提高写入性能（可能略微降低崩溃安全性）
+        #     conn.execute("PRAGMA synchronous=NORMAL")
+        #     # 增加缓存大小（约20MB）
+        #     conn.execute("PRAGMA cache_size=-20000")
+        #     # 使用内存存储临时表和索引
+        #     conn.execute("PRAGMA temp_store=MEMORY")
+        #     # 设置较大的页面大小，减少I/O操作
+        #     conn.execute("PRAGMA page_size=4096")
+        #     # 启用自动清理
+        #     conn.execute("PRAGMA auto_vacuum=INCREMENTAL")
+        #     # 设置较大的批量提交大小
+        #     conn.execute("PRAGMA busy_timeout=5000")
         logger.info("SQLite optimizations applied successfully")
 
 
