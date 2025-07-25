@@ -34,17 +34,17 @@ def upgrade() -> None:
         [
             {
                 "key": "key_validation_active_interval_seconds",
-                "value": "300",
+                "value": "600",
                 "updated_by_user_id": 1,
             },
             {
                 "key": "key_validation_exhausted_interval_seconds",
-                "value": "300",
+                "value": "1800",
                 "updated_by_user_id": 1,
             },
             {
                 "key": "key_validation_error_interval_seconds",
-                "value": "0",
+                "value": "86400",
                 "updated_by_user_id": 1,
             },
         ],
