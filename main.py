@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 from app.api.api import api_router
-from app.core.database import init_redis, close_redis
+from app.core.database import init_redis, close_redis, optimize_sqlite
 from app.api.endpoints.proxies import pure_proxy_router, gemini_openai_proxy
 
 from app.core.scheduler_config import (
@@ -19,6 +19,8 @@ async def lifespan(app: FastAPI):
     Executes startup logic when the application starts and shutdown logic when the application stops.
     """
     logger.info("Application startup...")
+    # 优化SQLite配置
+    optimize_sqlite()
     await init_redis()
     
     try:

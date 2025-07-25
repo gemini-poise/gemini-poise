@@ -8,10 +8,9 @@ services:
       - ./data/:/data
     environment:
       - TZ=Asia/Shanghai
-    #   - DATABASE_URL=your_production_db_url
-    #   - API_KEY=your_production_api_key
     depends_on:
       - redis
+      - postgres
     restart: always
 
   frontend:
@@ -30,5 +29,19 @@ services:
       - TZ=Asia/Shanghai
     restart: always
 
+  postgres:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=gemini_poise
+      - TZ=Asia/Shanghai
+    ports:
+      - "5432:5432"
+    restart: always
+
 volumes:
   redis_data:
+  postgres_data:
