@@ -84,12 +84,12 @@ gemini-poise/
           - "8100:8000"
         volumes:
           - ./.env:/app/.env
-          - ./data:/data
+          - ./data/:/data
         environment:
           - TZ=Asia/Shanghai
-        restart: always
         depends_on:
           - redis
+        restart: always
 
       frontend:
         image: alterem/gemini-poise-frontend
@@ -107,14 +107,59 @@ gemini-poise/
           - TZ=Asia/Shanghai
         restart: always
 
+      postgres:
+        image: postgres:15
+        profiles:
+          - postgresql
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+        environment:
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+          - POSTGRES_USER=postgres
+          - POSTGRES_DB=gemini_poise
+          - TZ=Asia/Shanghai
+        ports:
+          - "5432:5432"
+        restart: always
+
+      mysql:
+        image: mysql:8.0
+        profiles:
+          - mysql
+        volumes:
+          - mysql_data:/var/lib/mysql
+        environment:
+          - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-mysql}
+          - MYSQL_DATABASE=gemini_poise
+          - TZ=Asia/Shanghai
+        ports:
+          - "3306:3306"
+        restart: always
+
     volumes:
       redis_data:
+      postgres_data:
+      mysql_data:
+
     ```
 
 3.  **启动服务**:
-    在 `docker-compose.yaml` 文件所在的目录执行以下命令，启动所有服务：
+
+    在 `docker-compose.yaml` 文件所在的目录执行以下命令，启动所有服务（三选一）：
+
+    sqlite 数据库 
     ```bash
     docker compose up -d
+    ```
+
+    PostgreSQL 数据库
+    ```bash
+    docker compose --profile postgresql up -d
+    ```
+
+    启动 MySQL 数据库
+    ```bash
+    docker compose --profile mysql up -d
     ```
 
 4.  **验证服务是否成功启动**:

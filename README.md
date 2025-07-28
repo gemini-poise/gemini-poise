@@ -84,12 +84,12 @@ Please ensure you have Docker and Docker Compose installed on your system.
           - "8100:8000"
         volumes:
           - ./.env:/app/.env
-          - ./data:/data
+          - ./data/:/data
         environment:
           - TZ=Asia/Shanghai
-        restart: always
         depends_on:
           - redis
+        restart: always
 
       frontend:
         image: alterem/gemini-poise-frontend
@@ -107,14 +107,58 @@ Please ensure you have Docker and Docker Compose installed on your system.
           - TZ=Asia/Shanghai
         restart: always
 
+      postgres:
+        image: postgres:15
+        profiles:
+          - postgresql
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
+        environment:
+          - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+          - POSTGRES_USER=postgres
+          - POSTGRES_DB=gemini_poise
+          - TZ=Asia/Shanghai
+        ports:
+          - "5432:5432"
+        restart: always
+
+      mysql:
+        image: mysql:8.0
+        profiles:
+          - mysql
+        volumes:
+          - mysql_data:/var/lib/mysql
+        environment:
+          - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-mysql}
+          - MYSQL_DATABASE=gemini_poise
+          - TZ=Asia/Shanghai
+        ports:
+          - "3306:3306"
+        restart: always
+
     volumes:
       redis_data:
+      postgres_data:
+      mysql_data:
+
     ```
 
 3.  **Start the services**:
-    Execute the following command in the directory where `docker-compose.yaml` is located to start all services:
+    Execute the following command in the directory where the `docker-compose.yaml` file is located to start all services (choose one of the three):
+
+    sqlite database
     ```bash
     docker compose up -d
+    ```
+
+    PostgreSQL database
+    ```bash
+    docker compose --profile postgresql up -d
+    ```
+
+    Start MySQL database
+    ```bash
+    docker compose --profile mysql up -d
     ```
 
 4.  **Verify service startup**:

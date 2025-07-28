@@ -10,7 +10,6 @@ services:
       - TZ=Asia/Shanghai
     depends_on:
       - redis
-      - postgres
     restart: always
 
   frontend:
@@ -31,10 +30,12 @@ services:
 
   postgres:
     image: postgres:15
+    profiles:
+      - postgresql
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       - POSTGRES_USER=postgres
       - POSTGRES_DB=gemini_poise
       - TZ=Asia/Shanghai
@@ -42,6 +43,21 @@ services:
       - "5432:5432"
     restart: always
 
+  mysql:
+    image: mysql:8.0
+    profiles:
+      - mysql
+    volumes:
+      - mysql_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD:-mysql}
+      - MYSQL_DATABASE=gemini_poise
+      - TZ=Asia/Shanghai
+    ports:
+      - "3306:3306"
+    restart: always
+
 volumes:
   redis_data:
   postgres_data:
+  mysql_data:
