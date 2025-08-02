@@ -20,6 +20,7 @@ from ...schemas.schemas import (
     ApiKeyCheckResult,
     ApiCallLogResponse,
     KeyStatistics,
+    KeySurvivalStatisticsResponse,
 )
 from ...tasks.key_validation import check_keys_validity
 
@@ -192,6 +193,9 @@ async def bulk_check_api_keys(
 
     # 调用 key_validation 模块中的函数进行实际检测
     check_results = check_keys_validity(db, request_data.key_ids)
+    
+    # 提交数据库更改
+    db.commit()
 
     # 将检测结果转换为 ApiKeyCheckResult 列表
     results = [ApiKeyCheckResult(**res) for res in check_results]
@@ -214,6 +218,9 @@ async def check_single_api_key(
 
     # 调用 key_validation 模块中的函数进行实际检测
     check_results = check_keys_validity(db, [api_key_id])
+    
+    # 提交数据库更改
+    db.commit()
 
     if not check_results:
         raise HTTPException(
@@ -274,3 +281,13 @@ async def add_api_keys_from_list(
     return ApiKeyBulkAddResponse(
         total_processed=total_processed, total_added=total_added
     )
+
+
+@router.get("/statistics/survival", response_model=KeySurvivalStatisticsResponse)
+async def get_key_survival_statistics(db: db_dependency, current_user: user_dependency):
+    """
+    获取最近30次密钥存活统计数据。需要登录。
+    """
+    _ = current_user
+    statistics = crud.api_keys.get_key_survival_statistics(db, limit=30)
+    return KeySurvivalStatisticsResponse(statistics=statistics)

@@ -173,6 +173,11 @@ def validate_active_api_keys_task():
             db, "key_validation_timeout_seconds", 10.0, float
         )
         _perform_key_validation(db, "active", max_failed_count, timeout_seconds)
+        
+        # 记录密钥存活统计数据
+        from ..crud import api_keys as crud_api_keys
+        crud_api_keys.record_key_survival_statistics(db)
+        
     finally:
         db.close()
 
@@ -191,6 +196,11 @@ def validate_exhausted_api_keys_task():
             db, "key_validation_timeout_seconds", 10.0, float
         )
         _perform_key_validation(db, "exhausted", max_failed_count, timeout_seconds)
+        
+        # 记录密钥存活统计数据
+        from ..crud import api_keys as crud_api_keys
+        crud_api_keys.record_key_survival_statistics(db)
+        
     finally:
         db.close()
 
@@ -209,6 +219,11 @@ def validate_error_api_keys_task():
             db, "key_validation_timeout_seconds", 10.0, float
         )
         _perform_key_validation(db, "error", max_failed_count, timeout_seconds)
+        
+        # 记录密钥存活统计数据
+        from ..crud import api_keys as crud_api_keys
+        crud_api_keys.record_key_survival_statistics(db)
+        
     finally:
         db.close()
 
@@ -217,6 +232,7 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
     """
     Checks the validity of a list of API Keys by their IDs.
     Returns a list of dictionaries, each containing key_value, status, and message.
+    Also updates the key status in the database based on validation results.
     """
     logger.info(f"Starting bulk API Key validation for {len(key_ids)} keys...")
     results = []
@@ -226,6 +242,9 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
 
         timeout_seconds = _get_config_value_with_default(
             db, "key_validation_timeout_seconds", 10.0, float
+        )
+        max_failed_count = _get_config_value_with_default(
+            db, "key_validation_max_failed_count", 3, int
         )
 
         task_httpx_client = httpx.Client(timeout=timeout_seconds)
@@ -300,10 +319,13 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                 )
                 is_valid = response.status_code == 200 and "text" in response.text
 
+                # Update database key status based on validation result
                 if response.status_code == 429:
+                    update_key_status_based_on_response(db, api_key_obj, False, max_failed_count, status_override="exhausted")
                     status_str = "exhausted"
                     message_str = f"Validation failed: {response.status_code} - Too Many Requests"
                 else:
+                    update_key_status_based_on_response(db, api_key_obj, is_valid, max_failed_count)
                     status_str = "valid" if is_valid else "error"
                     message_str = (
                         "Key is valid."
@@ -323,6 +345,7 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                 logger.error(
                     f"Error validating API Key ID {api_key_obj.id} ({api_key_obj.key_value[:8]}...): {exc}"
                 )
+                update_key_status_based_on_response(db, api_key_obj, False, max_failed_count, status_override="error")
                 results.append(
                     {
                         "key_value": api_key_obj.key_value,
@@ -334,6 +357,7 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                 logger.error(
                     f"Unexpected error during validation for API Key ID {api_key_obj.id} ({api_key_obj.key_value[:8]}...): {e}"
                 )
+                update_key_status_based_on_response(db, api_key_obj, False, max_failed_count, status_override="error")
                 results.append(
                     {
                         "key_value": api_key_obj.key_value,

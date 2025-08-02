@@ -28,7 +28,9 @@ from .schemas import (
     Token,
     TokenData,
     LoginRequest,
-    ChangePasswordRequest
+    ChangePasswordRequest,
+    KeySurvivalStatisticsEntry,
+    KeySurvivalStatisticsResponse
 )
 
 # 或者，如果你想简单地暴露 schemas.py 中的所有名字，可以使用：

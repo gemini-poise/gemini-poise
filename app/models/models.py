@@ -56,3 +56,14 @@ class ApiCallLog(Base):
     call_count = Column(Integer, default=0)
 
     api_key = relationship("ApiKey", uselist=False)
+
+
+class KeySurvivalStatistics(Base):
+    __tablename__ = "key_survival_statistics"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    timestamp = Column(TIMESTAMP(timezone=True), nullable=False, index=True, server_default=func.now())
+    active_keys = Column(Integer, default=0, nullable=False)
+    exhausted_keys = Column(Integer, default=0, nullable=False)
+    error_keys = Column(Integer, default=0, nullable=False)
+    total_keys = Column(Integer, default=0, nullable=False)

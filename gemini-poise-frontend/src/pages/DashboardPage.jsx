@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { useKeyStatistics, useApiCallStatistics, useApiCallLogsByMinute } from '../hooks/useApiStatistics';
+import { useKeyStatistics, useApiCallStatistics, useKeySurvivalStatistics } from '../hooks/useApiStatistics';
 
 ChartJS.register(
   CategoryScale,
@@ -28,7 +28,7 @@ const DashboardPage = () => {
   const { t } = useTranslation();
   const { totalKeys, activeKeys, exhaustedKeys, backendErrorKeys, loadingKeys, errorFetchingKeys } = useKeyStatistics();
   const { callsLast1Minute, callsLast1Hour, callsLast24Hours, monthlyUsage, loadingCalls, errorCalls } = useApiCallStatistics();
-  const { apiCallLogs, loadingApiCallLogs, errorApiCallLogs } = useApiCallLogsByMinute(24);
+  const { keySurvivalStatistics, loadingKeySurvival, errorKeySurvival } = useKeySurvivalStatistics();
 
   const renderStatisticValue = (value, isLoading, isError) => {
     if (isLoading) {
@@ -110,12 +110,12 @@ const DashboardPage = () => {
           <Card
             variant="borderless"
             hoverable
-            title={t('dashboard.apiCallTrends')}
+            title={t('dashboard.keySurvivalTrends')}
           >
-            {loadingApiCallLogs && <Spin />}
-            {errorApiCallLogs && <Alert message={errorApiCallLogs} type="error" showIcon />}
-            {!loadingApiCallLogs && !errorApiCallLogs && (
-              <Line data={processApiCallLogs(apiCallLogs)} options={chartOptions(t)} />
+            {loadingKeySurvival && <Spin />}
+            {errorKeySurvival && <Alert message={errorKeySurvival} type="error" showIcon />}
+            {!loadingKeySurvival && !errorKeySurvival && (
+              <Line data={processKeySurvivalStatistics(keySurvivalStatistics)} options={keySurvivalChartOptions(t)} />
             )}
           </Card>
         </Col>
@@ -123,6 +123,98 @@ const DashboardPage = () => {
     </div>
   );
 };
+
+const processKeySurvivalStatistics = (statistics) => {
+  if (!statistics || statistics.length === 0) {
+    return {
+      labels: [],
+      datasets: []
+    };
+  }
+
+  const labels = statistics.map(stat => {
+    const date = new Date(stat.timestamp);
+    return date.toLocaleString('en-US', { 
+      month: '2-digit', 
+      day: '2-digit', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  });
+
+  const activeData = statistics.map(stat => stat.active_keys);
+  const exhaustedData = statistics.map(stat => stat.exhausted_keys);
+  const errorData = statistics.map(stat => stat.error_keys);
+  const totalData = statistics.map(stat => stat.total_keys);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Total Keys',
+        data: totalData,
+        borderColor: 'rgba(24, 144, 255, 0.8)',
+        backgroundColor: 'rgba(24, 144, 255, 0.2)',
+        fill: false,
+        tension: 0.1,
+      },
+      {
+        label: 'Active Keys',
+        data: activeData,
+        borderColor: 'rgba(63, 134, 0, 0.8)',
+        backgroundColor: 'rgba(63, 134, 0, 0.2)',
+        fill: false,
+        tension: 0.1,
+      },
+      {
+        label: 'Exhausted Keys',
+        data: exhaustedData,
+        borderColor: 'rgba(250, 173, 20, 0.8)',
+        backgroundColor: 'rgba(250, 173, 20, 0.2)',
+        fill: false,
+        tension: 0.1,
+        hidden: true,
+      },
+      {
+        label: 'Error Keys',
+        data: errorData,
+        borderColor: 'rgba(207, 19, 34, 0.8)',
+        backgroundColor: 'rgba(207, 19, 34, 0.2)',
+        fill: false,
+        tension: 0.1,
+        hidden: true,
+      }
+    ],
+  };
+};
+
+const keySurvivalChartOptions = (t) => ({
+  responsive: true,
+  plugins: {
+    legend: {
+      position: 'top',
+    },
+    title: {
+      display: true,
+      text: t('dashboard.keySurvivalOverTime'),
+    },
+  },
+  scales: {
+    x: {
+      title: {
+        display: true,
+        text: t('dashboard.time'),
+      },
+    },
+    y: {
+      title: {
+        display: true,
+        text: t('dashboard.keyCount'),
+      },
+      beginAtZero: true,
+    },
+  },
+});
 
 const processApiCallLogs = (logs) => {
   const dataMap = new Map();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getKeyStatistics, getApiCallStatistics, getApiCallLogsByMinute } from '../api/api';
+import { getKeyStatistics, getApiCallStatistics, getApiCallLogsByMinute, getKeySurvivalStatistics } from '../api/api';
 
 export const useKeyStatistics = () => {
   const [keyStatistics, setKeyStatistics] = useState({ totalKeys: 0, activeKeys: 0, exhaustedKeys: 0, backendErrorKeys: 0 });
@@ -89,4 +89,30 @@ export const useApiCallLogsByMinute = (hoursAgo = 24) => {
   }, [hoursAgo]);
 
   return { apiCallLogs, loadingApiCallLogs, errorApiCallLogs };
+};
+
+export const useKeySurvivalStatistics = () => {
+  const [keySurvivalStatistics, setKeySurvivalStatistics] = useState([]);
+  const [loadingKeySurvival, setLoadingKeySurvival] = useState(true);
+  const [errorKeySurvival, setErrorKeySurvival] = useState(null);
+
+  useEffect(() => {
+    const fetchKeySurvivalStatistics = async () => {
+      try {
+        setLoadingKeySurvival(true);
+        const response = await getKeySurvivalStatistics();
+        setKeySurvivalStatistics(response.data.statistics);
+        setErrorKeySurvival(null);
+      } catch (err) {
+        console.error("Error fetching key survival statistics:", err);
+        setErrorKeySurvival("Failed to load key survival statistics.");
+      } finally {
+        setLoadingKeySurvival(false);
+      }
+    };
+
+    fetchKeySurvivalStatistics();
+  }, []);
+
+  return { keySurvivalStatistics, loadingKeySurvival, errorKeySurvival };
 };

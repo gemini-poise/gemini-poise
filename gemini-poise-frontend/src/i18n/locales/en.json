@@ -67,6 +67,9 @@
         "oneHourCalls": "1 Hour Calls",
         "twentyFourHourCalls": "24 Hour Calls",
         "apiCallTrends": "API Call Trends (Last 24 Hours)",
+        "keySurvivalTrends": "Key Survival Trends (Last 30 Records)",
+        "keySurvivalOverTime": "Key Survival Status Over Time",
+        "keyCount": "Key Count",
         "apiCallsPerMinute": "API Calls Per Minute by Key",
         "time": "Time (Minute)",
         "callCount": "Call Count"

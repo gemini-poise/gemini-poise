@@ -224,3 +224,19 @@ class ConfigBulkSaveRequest(BaseModel):
 # class ConfigListResponse(BaseModel):
 #     items: List[ConfigItem]
 #     total: int # 如果需要分页信息
+
+
+# --- Key Survival Statistics Schemas ---
+class KeySurvivalStatisticsEntry(BaseModel):
+    timestamp: datetime
+    active_keys: int
+    exhausted_keys: int
+    error_keys: int
+    total_keys: int
+
+    class Config:
+        from_attributes = True
+
+
+class KeySurvivalStatisticsResponse(BaseModel):
+    statistics: List[KeySurvivalStatisticsEntry]
