@@ -157,6 +157,7 @@ const processKeySurvivalStatistics = (statistics) => {
         backgroundColor: 'rgba(24, 144, 255, 0.2)',
         fill: false,
         tension: 0.1,
+        hidden: true,
       },
       {
         label: 'Active Keys',
@@ -173,7 +174,6 @@ const processKeySurvivalStatistics = (statistics) => {
         backgroundColor: 'rgba(250, 173, 20, 0.2)',
         fill: false,
         tension: 0.1,
-        hidden: true,
       },
       {
         label: 'Error Keys',
@@ -182,7 +182,6 @@ const processKeySurvivalStatistics = (statistics) => {
         backgroundColor: 'rgba(207, 19, 34, 0.2)',
         fill: false,
         tension: 0.1,
-        hidden: true,
       }
     ],
   };

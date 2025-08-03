@@ -286,8 +286,8 @@ async def add_api_keys_from_list(
 @router.get("/statistics/survival", response_model=KeySurvivalStatisticsResponse)
 async def get_key_survival_statistics(db: db_dependency, current_user: user_dependency):
     """
-    获取最近30次密钥存活统计数据。需要登录。
+    获取最近60次密钥存活统计数据。需要登录。
     """
     _ = current_user
-    statistics = crud.api_keys.get_key_survival_statistics(db, limit=30)
+    statistics = crud.api_keys.get_key_survival_statistics(db, limit=60)
     return KeySurvivalStatisticsResponse(statistics=statistics)
