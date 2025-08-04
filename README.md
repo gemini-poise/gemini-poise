@@ -205,6 +205,7 @@ Please ensure you have Docker and Docker Compose installed on your system.
 
 6.  **Start the backend service**:
     ```bash
+    # uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
     uvicorn main:app --reload
     ```
     The backend service will start at `http://localhost:8000`.

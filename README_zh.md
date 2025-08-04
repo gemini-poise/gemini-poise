@@ -206,6 +206,7 @@ gemini-poise/
 
 6.  **启动后端服务**:
     ```bash
+    # uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
     uvicorn main:app --reload
     ```
     后端服务将在 `http://localhost:8000` 启动。
