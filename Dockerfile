@@ -2,11 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 安装 uv
+RUN pip install --no-cache-dir uv
 
+# 复制项目文件
+COPY pyproject.toml uv.lock ./
 COPY .env.example /app/.env
 COPY . /app
+
+# 使用 uv 安装依赖
+RUN uv pip install --no-cache-dir -e .
 
 EXPOSE 8000
 
