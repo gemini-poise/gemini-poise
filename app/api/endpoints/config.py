@@ -110,6 +110,26 @@ async def create_config_item(
     """
     创建一个新的配置项。需要登录。
     """
+    # 验证并发数量配置
+    if config_item.key == "key_validation_concurrent_count":
+        try:
+            concurrent_count = int(config_item.value)
+            if concurrent_count < 1:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Key validation concurrent count must be at least 1"
+                )
+            elif concurrent_count > 10:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Key validation concurrent count cannot exceed 10"
+                )
+        except ValueError:
+            raise HTTPException(
+                status_code=400, 
+                detail="Key validation concurrent count must be a valid integer"
+            )
+    
     # 只有登录用户才能执行此操作
     existing_config = crud.config.get_config_by_key(db, config_item.key)
     if existing_config:
@@ -133,6 +153,26 @@ async def update_config_by_key(
     """
     根据 Key 更新配置值。需要登录。
     """
+    # 验证并发数量配置
+    if key == "key_validation_concurrent_count":
+        try:
+            concurrent_count = int(config_update.value)
+            if concurrent_count < 1:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Key validation concurrent count must be at least 1"
+                )
+            elif concurrent_count > 10:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Key validation concurrent count cannot exceed 10"
+                )
+        except ValueError:
+            raise HTTPException(
+                status_code=400, 
+                detail="Key validation concurrent count must be a valid integer"
+            )
+    
     # 只有登录用户才能执行此操作
     updated = crud.config.update_config_value(
         db, key, config_update.value, current_user.id
@@ -170,6 +210,27 @@ async def bulk_save_config(
     """
     批量保存配置项。如果 Key 存在则更新，否则添加。需要登录。
     """
+    # 验证并发数量配置
+    for item in request_data.items:
+        if item.key == "key_validation_concurrent_count":
+            try:
+                concurrent_count = int(item.value)
+                if concurrent_count < 1:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Key validation concurrent count must be at least 1"
+                    )
+                elif concurrent_count > 10:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail="Key validation concurrent count cannot exceed 10"
+                    )
+            except ValueError:
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Key validation concurrent count must be a valid integer"
+                )
+    
     crud.config.bulk_save_config_items(db, request_data.items, current_user.id)
     db.commit()
 

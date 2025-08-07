@@ -165,6 +165,7 @@
         "keyValidationMaxFailedCount": "Key Validation Max Failed Count",
         "keyValidationTimeout": "Key Validation Timeout (seconds)",
         "keyValidationModelName": "Key Validation Model Name",
+        "keyValidationConcurrentCount": "Key Validation Concurrent Count",
         "pleaseInputField": "Please input the {{field}}!",
         "watermarkText": "Gemini Poise Config",
         "failedToLoadConfig": "Failed to load configuration.",

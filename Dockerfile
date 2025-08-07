@@ -11,7 +11,7 @@ COPY .env.example /app/.env
 COPY . /app
 
 # 使用 uv 安装依赖
-RUN uv pip install --no-cache-dir -e .
+RUN uv pip install --system --no-cache-dir -e .
 
 EXPOSE 8000
 

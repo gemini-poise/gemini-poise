@@ -26,6 +26,7 @@ Gemini Poise is a full-stack application designed to help you easily proxy and m
 
 - **User Authentication and Authorization**: Ensures that only authorized users can access the system.
 - **API Key Management**: Easily add, edit, delete, enable, or disable API Keys.
+- **Key Survival Statistics**: Monitor and track API key status changes over time with detailed statistics.
 - **Configuration Management**: Flexible settings for target API URLs and other system parameters.
 - **API Request Proxy and Forwarding**: Seamlessly proxies and forwards Gemini API requests.
 - **API Key Automatic Rotation**: Automatically manages and rotates API Keys to improve API availability.
@@ -298,6 +299,9 @@ Please ensure you have Docker and Docker Compose installed on your system.
 
 ### Phase 7: Integration, Optimization, and Deployment
 - [x] Frontend and backend integration testing
+- [x] Key survival statistics and monitoring
+- [x] Project dependency management with pyproject.toml and uv
+- [x] Docker build optimization with uv
 - [ ] Logging
 - [x] Dockerization for deployment
 
