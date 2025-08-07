@@ -2,8 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# 安装 uv
-RUN pip install --no-cache-dir uv
+# 安装构建工具和 uv
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv
 
 # 复制项目文件
 COPY pyproject.toml uv.lock ./
