@@ -1,5 +1,13 @@
+import logging
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
+
+# 配置全局日志格式
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 from app.api.api import api_router
 from app.core.database import init_redis, close_redis, optimize_sqlite

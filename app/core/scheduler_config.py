@@ -10,7 +10,6 @@ from app.tasks.key_validation import (
     validate_error_api_keys_task,
 )
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 jobstores = {
