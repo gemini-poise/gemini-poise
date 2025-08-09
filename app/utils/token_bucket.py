@@ -39,7 +39,7 @@ class TokenBucketManager:
             self.redis_client = redis_client
         
         # 默认配置
-        self.default_capacity = 10  # 默认桶容量
+        self.default_capacity = 20  # 默认桶容量
         self.default_refill_rate = 1.0  # 默认每秒补充1个令牌
         self.bucket_prefix = "token_bucket:api_key:"
         self.bucket_ttl = 3600  # 桶数据TTL（秒）
@@ -88,9 +88,54 @@ class TokenBucketManager:
         
         return bucket
     
+    def _consume_token_lua_script(self):
+        """获取Lua脚本用于原子性令牌消耗"""
+        return """
+        local bucket_key = KEYS[1]
+        local tokens_to_consume = tonumber(ARGV[1])
+        local current_time = tonumber(ARGV[2])
+        local capacity = tonumber(ARGV[3])
+        local refill_rate = tonumber(ARGV[4])
+        local ttl = tonumber(ARGV[5])
+        
+        local bucket_data = redis.call('GET', bucket_key)
+        local bucket
+        
+        if bucket_data then
+            bucket = cjson.decode(bucket_data)
+        else
+            bucket = {
+                capacity = capacity,
+                tokens = capacity,
+                refill_rate = refill_rate,
+                last_refill = current_time
+            }
+        end
+        
+        -- 补充令牌
+        local time_passed = current_time - bucket.last_refill
+        if time_passed > 0 then
+            local tokens_to_add = time_passed * bucket.refill_rate
+            bucket.tokens = math.min(bucket.capacity, bucket.tokens + tokens_to_add)
+            bucket.last_refill = current_time
+        end
+        
+        -- 尝试消耗令牌
+        local success = false
+        if bucket.tokens >= tokens_to_consume then
+            bucket.tokens = bucket.tokens - tokens_to_consume
+            success = true
+        end
+        
+        -- 保存桶状态
+        redis.call('SETEX', bucket_key, ttl, cjson.encode(bucket))
+        
+        return {success and 1 or 0, bucket.tokens}
+        """
+    
     def consume_token(self, api_key_id: int, tokens: int = 1) -> bool:
         """
-        尝试从令牌桶中消耗指定数量的令牌
+        尝试从令牌桶中消耗指定数量的令牌（优化版本，使用Lua脚本）
         
         Args:
             api_key_id: API key ID
@@ -100,20 +145,43 @@ class TokenBucketManager:
             bool: 是否成功消耗令牌
         """
         try:
-            bucket = self._get_bucket(api_key_id)
-            bucket = self._refill_bucket(bucket)
-            
-            if bucket.tokens >= tokens:
-                bucket.tokens -= tokens
-                self._save_bucket(api_key_id, bucket)
-                logger.debug(f"Consumed {tokens} tokens for API key {api_key_id}, remaining: {bucket.tokens}")
-                return True
+            # 尝试使用Lua脚本进行原子操作
+            if hasattr(self, '_lua_script'):
+                logger.info(f"🚀 [TOKEN BUCKET] Using optimized Lua script for API key {api_key_id}")
+                bucket_key = self._get_bucket_key(api_key_id)
+                current_time = time.time()
+                
+                result = self._lua_script(
+                    keys=[bucket_key],
+                    args=[tokens, current_time, self.default_capacity, self.default_refill_rate, self.bucket_ttl]
+                )
+                
+                success = bool(result[0])
+                remaining_tokens = float(result[1])
+                
+                if success:
+                    logger.info(f"✅ [TOKEN BUCKET] Successfully consumed {tokens} tokens for API key {api_key_id}, remaining: {remaining_tokens:.2f}")
+                else:
+                    logger.warning(f"❌ [TOKEN BUCKET] Insufficient tokens for API key {api_key_id}, available: {remaining_tokens:.2f}, required: {tokens}")
+                
+                return success
             else:
-                logger.debug(f"Insufficient tokens for API key {api_key_id}, available: {bucket.tokens}, required: {tokens}")
-                return False
+                # 回退到原有实现
+                logger.info(f"⚠️ [TOKEN BUCKET] Using fallback implementation for API key {api_key_id}")
+                bucket = self._get_bucket(api_key_id)
+                bucket = self._refill_bucket(bucket)
+                
+                if bucket.tokens >= tokens:
+                    bucket.tokens -= tokens
+                    self._save_bucket(api_key_id, bucket)
+                    logger.info(f"✅ [TOKEN BUCKET] Consumed {tokens} tokens for API key {api_key_id}, remaining: {bucket.tokens:.2f}")
+                    return True
+                else:
+                    logger.warning(f"❌ [TOKEN BUCKET] Insufficient tokens for API key {api_key_id}, available: {bucket.tokens:.2f}, required: {tokens}")
+                    return False
                 
         except Exception as e:
-            logger.error(f"Error consuming token for API key {api_key_id}: {e}")
+            logger.error(f"💥 [TOKEN BUCKET] Error consuming token for API key {api_key_id}: {e}")
             return False
     
     def get_available_tokens(self, api_key_id: int) -> float:
@@ -170,7 +238,7 @@ class TokenBucketManager:
     
     def get_available_api_keys(self, api_key_ids: List[int], required_tokens: int = 1) -> List[int]:
         """
-        获取有足够令牌的 API key 列表
+        获取有足够令牌的 API key 列表（优化版本，批量检查）
         
         Args:
             api_key_ids: API key ID 列表
@@ -179,42 +247,164 @@ class TokenBucketManager:
         Returns:
             List[int]: 有足够令牌的 API key ID 列表
         """
+        if not api_key_ids:
+            return []
+        
+        logger.info(f"🔍 [TOKEN BUCKET] Batch checking {len(api_key_ids)} API keys for {required_tokens} tokens")
+        
         available_keys = []
+        current_time = time.time()
         
-        for api_key_id in api_key_ids:
-            if self.get_available_tokens(api_key_id) >= required_tokens:
-                available_keys.append(api_key_id)
+        # 批量获取所有桶的数据
+        bucket_keys = [self._get_bucket_key(api_key_id) for api_key_id in api_key_ids]
         
-        return available_keys
-    
-    def cleanup_expired_buckets(self):
-        """清理过期的令牌桶（由 Redis TTL 自动处理，此方法用于手动清理）"""
         try:
-            pattern = f"{self.bucket_prefix}*"
-            keys = self.redis_client.keys(pattern)
+            # 使用pipeline批量获取数据
+            logger.info(f"⚡ [TOKEN BUCKET] Using Redis pipeline for batch operation")
+            pipe = self.redis_client.pipeline()
+            for key in bucket_keys:
+                pipe.get(key)
+            bucket_data_list = pipe.execute()
             
-            current_time = time.time()
-            expired_keys = []
-            
-            for key in keys:
-                bucket_data = self.redis_client.get(key)
-                if bucket_data:
-                    try:
+            # 检查每个桶的令牌数
+            for i, (api_key_id, bucket_data) in enumerate(zip(api_key_ids, bucket_data_list)):
+                try:
+                    if bucket_data:
                         data = json.loads(bucket_data)
                         bucket = TokenBucket.from_dict(data)
-                        # 如果超过1小时没有使用，认为过期
-                        if current_time - bucket.last_refill > 3600:
-                            expired_keys.append(key)
-                    except (json.JSONDecodeError, TypeError):
-                        expired_keys.append(key)
+                        
+                        # 补充令牌
+                        time_passed = current_time - bucket.last_refill
+                        if time_passed > 0:
+                            tokens_to_add = time_passed * bucket.refill_rate
+                            bucket.tokens = min(bucket.capacity, bucket.tokens + tokens_to_add)
+                        
+                        if bucket.tokens >= required_tokens:
+                            available_keys.append(api_key_id)
+                            logger.debug(f"✅ [TOKEN BUCKET] API key {api_key_id} has {bucket.tokens:.2f} tokens (sufficient)")
+                        else:
+                            logger.debug(f"❌ [TOKEN BUCKET] API key {api_key_id} has {bucket.tokens:.2f} tokens (insufficient)")
+                    else:
+                        # 新桶默认是满的
+                        if self.default_capacity >= required_tokens:
+                            available_keys.append(api_key_id)
+                            logger.debug(f"🆕 [TOKEN BUCKET] New bucket for API key {api_key_id} with {self.default_capacity} tokens")
+                            
+                except Exception as e:
+                    logger.warning(f"⚠️ [TOKEN BUCKET] Error checking tokens for API key {api_key_id}: {e}")
+                    continue
             
-            if expired_keys:
-                self.redis_client.delete(*expired_keys)
-                logger.info(f"Cleaned up {len(expired_keys)} expired token buckets")
+            logger.info(f"📊 [TOKEN BUCKET] Batch check result: {len(available_keys)}/{len(api_key_ids)} keys have sufficient tokens")
+            return available_keys
+            
+        except Exception as e:
+            logger.error(f"💥 [TOKEN BUCKET] Error in batch token check, falling back to individual checks: {e}")
+            # 回退到逐个检查
+            for api_key_id in api_key_ids:
+                if self.get_available_tokens(api_key_id) >= required_tokens:
+                    available_keys.append(api_key_id)
+            
+            return available_keys
+    
+    def cleanup_expired_buckets(self):
+        """清理过期的令牌桶（优化版本，使用SCAN避免阻塞）"""
+        try:
+            pattern = f"{self.bucket_prefix}*"
+            current_time = time.time()
+            total_deleted = 0
+            cursor = 0
+            
+            while True:
+                # 使用SCAN而不是KEYS，避免阻塞Redis
+                cursor, keys = self.redis_client.scan(cursor, match=pattern, count=100)
+                
+                if keys:
+                    expired_keys = []
+                    
+                    # 批量获取数据
+                    pipe = self.redis_client.pipeline()
+                    for key in keys:
+                        pipe.get(key)
+                    bucket_data_list = pipe.execute()
+                    
+                    # 检查过期
+                    for key, bucket_data in zip(keys, bucket_data_list):
+                        if bucket_data:
+                            try:
+                                data = json.loads(bucket_data)
+                                bucket = TokenBucket.from_dict(data)
+                                # 如果超过1小时没有使用，认为过期
+                                if current_time - bucket.last_refill > 3600:
+                                    expired_keys.append(key)
+                            except (json.JSONDecodeError, TypeError):
+                                expired_keys.append(key)
+                        else:
+                            # 数据已经不存在，可能是TTL过期了
+                            expired_keys.append(key)
+                    
+                    # 批量删除过期的键
+                    if expired_keys:
+                        self.redis_client.delete(*expired_keys)
+                        total_deleted += len(expired_keys)
+                        logger.debug(f"Cleaned up {len(expired_keys)} expired buckets in this batch")
+                
+                if cursor == 0:
+                    break
+            
+            if total_deleted > 0:
+                logger.info(f"Cleaned up {total_deleted} expired token buckets")
+            
+            return total_deleted
                 
         except Exception as e:
             logger.error(f"Error cleaning up expired buckets: {e}")
+            return 0
 
 
-# 全局令牌桶管理器实例
-token_bucket_manager = TokenBucketManager()
+class OptimizedTokenBucketManager(TokenBucketManager):
+    """优化版令牌桶管理器，继承原有类并增强功能"""
+    
+    def __init__(self, redis_client: Optional[redis.Redis] = None):
+        super().__init__(redis_client)
+        
+        # 尝试注册Lua脚本
+        try:
+            self._lua_script = self.redis_client.register_script(self._consume_token_lua_script())
+            logger.info("🚀 [TOKEN BUCKET] Optimized token bucket manager initialized with Lua script support")
+        except Exception as e:
+            logger.warning(f"⚠️ [TOKEN BUCKET] Failed to register Lua script, falling back to original implementation: {e}")
+            self._lua_script = None
+    
+    def get_bucket_status(self, api_key_id: int) -> Dict[str, Any]:
+        """获取令牌桶状态信息（用于监控）"""
+        try:
+            bucket_info = self.get_bucket_info(api_key_id)
+            if bucket_info:
+                capacity = bucket_info.get("capacity", 0)
+                tokens = bucket_info.get("tokens", 0)
+                utilization = round((1 - tokens / max(capacity, 1)) * 100, 2) if capacity > 0 else 0
+                
+                status = {
+                    "api_key_id": api_key_id,
+                    "capacity": capacity,
+                    "tokens": round(tokens, 2),
+                    "refill_rate": bucket_info.get("refill_rate", 0),
+                    "utilization_percent": utilization,
+                    "status": "healthy" if tokens > 0 else "depleted",
+                    "last_refill": bucket_info.get("last_refill", 0)
+                }
+                
+                logger.debug(f"📊 [TOKEN BUCKET] Status for API key {api_key_id}: {status['status']}, {tokens:.2f}/{capacity} tokens")
+                return status
+            else:
+                return {
+                    "api_key_id": api_key_id,
+                    "status": "not_found"
+                }
+        except Exception as e:
+            logger.error(f"💥 [TOKEN BUCKET] Error getting bucket status for API key {api_key_id}: {e}")
+            return {"api_key_id": api_key_id, "status": "error", "error": str(e)}
+
+
+# 全局令牌桶管理器实例 - 使用优化版本
+token_bucket_manager = OptimizedTokenBucketManager()
