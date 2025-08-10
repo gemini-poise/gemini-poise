@@ -423,6 +423,17 @@ class ProxyHandler:
         self.request_transformer = RequestTransformer()
         self.response_transformer = ResponseTransformer()
     
+    async def _safely_read_response_content(self, response) -> bytes:
+        """安全地读取响应内容"""
+        try:
+            if hasattr(response, 'aread'):
+                return await response.aread()
+            else:
+                return response.content
+        except Exception as e:
+            logger.warning(f"无法读取响应内容: {e}")
+            return b'{"error": {"message": "Failed to read response content"}}'
+    
     async def _validate_request_path(self, request: Request, expected_suffix: str) -> None:
         """验证请求路径"""
         expected_path = settings.OPENAI_PROXY_PREFIX + expected_suffix
@@ -611,35 +622,46 @@ async def openai_chat_completions(request: Request, db: db_dependency):
             if not (200 <= proxy_response.status_code < 300):
                 logger.error(f"最终代理请求失败，状态码: {proxy_response.status_code}")
 
+                # 安全地读取错误响应内容
+                error_content = await handler._safely_read_response_content(proxy_response)
+
                 if stream and proxy_response_context:
                     await proxy_response_context.__aexit__(None, None, None)
                 elif proxy_response:
                     await proxy_response.aclose()
 
+                # 创建错误响应，不包含可能不正确的响应头
                 return Response(
-                    content=proxy_response.content,
+                    content=error_content,
                     status_code=proxy_response.status_code,
-                    headers=dict(proxy_response.headers),
-                    media_type=proxy_response.headers.get("content-type", "application/json"),
+                    media_type=proxy_response.headers.get("content-type", "application/json")
                 )
 
             if stream:
                 logger.info("返回流式响应")
+                # 过滤响应头，避免 Content-Length 冲突
+                response_headers = dict(proxy_response.headers)
+                response_headers.pop("content-length", None)
+                response_headers.pop("content-encoding", None)
+                
                 return StreamingResponse(
                     content=StreamAdapter(proxy_response.aiter_bytes()).aiter_bytes(),
                     status_code=proxy_response.status_code,
-                    headers=dict(proxy_response.headers),
+                    headers=response_headers,
                     background=lambda: proxy_response_context.__aexit__(None, None, None),
                 )
             else:
                 logger.info("返回非流式响应")
+                # 安全地读取响应内容
+                response_content = await handler._safely_read_response_content(proxy_response)
+                
                 openai_response = handler.response_transformer.transform_gemini_to_openai_response(
-                    proxy_response.content
+                    response_content
                 )
+                # 返回 JSON 响应，不包含原始响应头以避免冲突
                 return Response(
                     content=json.dumps(openai_response).encode(),
                     status_code=proxy_response.status_code,
-                    headers=dict(proxy_response.headers),
                     media_type="application/json",
                 )
 
