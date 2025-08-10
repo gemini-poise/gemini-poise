@@ -1,8 +1,6 @@
 services:
   backend:
     image: alterem/gemini-poise
-    ports:
-      - "8100:8000"
     volumes:
       - ./.env:/app/.env
       - ./data/:/data
@@ -12,7 +10,7 @@ services:
       - redis
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -29,12 +27,14 @@ services:
   frontend:
     image: alterem/gemini-poise-frontend
     ports:
-      - "8101:80"
+      - "8100:80"  # 只需要一个端口
     environment:
       - TZ=Asia/Shanghai
+    depends_on:
+      - backend
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3

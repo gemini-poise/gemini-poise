@@ -83,3 +83,8 @@ app.include_router(pure_proxy_router)
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to Gemini Poise AI Proxy Tool"}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "gemini-poise"}
