@@ -21,7 +21,7 @@ from starlette import status
 from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import StreamingResponse
 
-from .base_proxy import update_key_status_based_on_response, record_api_call_log
+from .base_proxy import update_key_status_based_on_response, record_api_call_log, httpx_client
 from .... import crud
 from ....core.config import settings
 from ....core.security import db_dependency
@@ -115,16 +115,16 @@ class KeyManager:
         return key_obj
     
     @staticmethod
-    def update_key_usage(db, api_key, success: bool) -> None:
+    def update_key_usage(db, api_key, success: bool, status_override: str = None) -> None:
         """更新密钥使用状态"""
         try:
             max_failed_count = ConfigManager.get_max_failed_count(db)
-            update_key_status_based_on_response(db, api_key, success, max_failed_count)
+            update_key_status_based_on_response(db, api_key, success, max_failed_count, status_override)
+            record_api_call_log(db, api_key.id)
         except Exception as e:
             logger.error(f"更新密钥使用状态失败: {e}")
 
 
-httpx_client = httpx.AsyncClient(timeout=DEFAULT_TIMEOUT)
 
 
 class RequestTransformer:
@@ -578,10 +578,9 @@ async def openai_chat_completions(request: Request, db: db_dependency):
             
             success = 200 <= proxy_response.status_code < 300
             if proxy_response.status_code == 429:
-                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+                handler.key_manager.update_key_usage(db, api_key_obj, False, "exhausted")
             else:
                 handler.key_manager.update_key_usage(db, api_key_obj, success)
-            record_api_call_log(db, api_key_obj.id)
 
             if proxy_response.status_code == 401 and "preview" in gemini_path:
                 logger.warning(f"预览版模型 {gemini_path} 认证失败 (401)，尝试使用标准模型")
@@ -605,10 +604,9 @@ async def openai_chat_completions(request: Request, db: db_dependency):
 
                 success = 200 <= proxy_response.status_code < 300
                 if proxy_response.status_code == 429:
-                    handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+                    handler.key_manager.update_key_usage(db, api_key_obj, False, "exhausted")
                 else:
                     handler.key_manager.update_key_usage(db, api_key_obj, success)
-                record_api_call_log(db, api_key_obj.id)
 
             if not (200 <= proxy_response.status_code < 300):
                 logger.error(f"最终代理请求失败，状态码: {proxy_response.status_code}")
@@ -648,7 +646,7 @@ async def openai_chat_completions(request: Request, db: db_dependency):
         except httpx.RequestError as exc:
             logger.error(f"请求错误: {exc}", exc_info=True)
             if 'api_key_obj' in locals():
-                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
+                handler.key_manager.update_key_usage(db, api_key_obj, False, "error")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Proxy request failed: {exc}",
@@ -656,7 +654,7 @@ async def openai_chat_completions(request: Request, db: db_dependency):
         except Exception as e:
             logger.error(f"处理请求时发生未预期错误: {e}", exc_info=True)
             if 'api_key_obj' in locals():
-                handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
+                handler.key_manager.update_key_usage(db, api_key_obj, False, "error")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"An unexpected error occurred: {e}",
@@ -664,12 +662,12 @@ async def openai_chat_completions(request: Request, db: db_dependency):
 
     except ProxyError as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
+            handler.key_manager.update_key_usage(db, api_key_obj, False, "error")
         raise HTTPException(status_code=e.status_code, detail=e.detail)
 
     except Exception as e:
         if 'api_key_obj' in locals():
-            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="error")
+            handler.key_manager.update_key_usage(db, api_key_obj, False, "error")
         logger.error(f"聊天补全请求处理时发生未预期错误: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -793,10 +791,9 @@ async def openai_image_generations(request: Request, db: db_dependency):
         
         success = 200 <= response.status_code < 300
         if response.status_code == 429:
-            handler.key_manager.update_key_usage(db, api_key_obj, False, status_override="exhausted")
+            handler.key_manager.update_key_usage(db, api_key_obj, False, "exhausted")
         else:
             handler.key_manager.update_key_usage(db, api_key_obj, success)
-        record_api_call_log(db, api_key_obj.id)
         
         if not success:
             error_detail = "图像生成请求失败"
