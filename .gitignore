@@ -37,3 +37,5 @@ gemini_poise.egg-info
 .*egg-info
 
 .idea
+*.log
+logs/

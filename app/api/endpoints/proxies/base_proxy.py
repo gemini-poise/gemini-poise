@@ -13,7 +13,51 @@ from ....models.models import ApiCallLog
 
 logger = logging.getLogger(__name__)
 
-httpx_client = httpx.AsyncClient(timeout=60.0)
+# 优化的 httpx 客户端配置，使用连接池和超时配置
+httpx_client = httpx.AsyncClient(
+    timeout=httpx.Timeout(
+        connect=10.0,    # 连接超时
+        read=60.0,       # 读取超时
+        write=30.0,      # 写入超时
+        pool=5.0         # 连接池超时
+    ),
+    limits=httpx.Limits(
+        max_keepalive_connections=20,  # 最大保持连接数
+        max_connections=100,           # 最大连接数
+        keepalive_expiry=30.0         # 连接保持时间
+    ),
+    follow_redirects=True,
+    http2=True  # 启用 HTTP/2 支持
+)
+
+
+def get_max_failed_count(db: Session) -> int:
+    """获取最大失败次数配置"""
+    max_failed_count_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
+    max_failed_count = 3  # 默认值
+    if max_failed_count_str:
+        try:
+            max_failed_count = int(max_failed_count_str)
+            if max_failed_count < 0:
+                logger.warning(f"Invalid max failed count '{max_failed_count_str}' from config, using default 3.")
+                max_failed_count = 3
+        except ValueError:
+            logger.warning(f"Invalid max failed count format '{max_failed_count_str}' from config, using default 3.")
+    return max_failed_count
+
+
+def handle_proxy_error(db: Session, selected_key, error: Exception, error_type: str = "error"):
+    """统一处理代理错误"""
+    if selected_key:
+        max_failed_count = get_max_failed_count(db)
+        update_key_status_based_on_response(db, selected_key, False, max_failed_count, status_override=error_type)
+    
+    if isinstance(error, httpx.RequestError):
+        logger.error(f"An error occurred while requesting {error.request.url!r}: {error}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Proxy request failed: {error}")
+    else:
+        logger.error(f"An unexpected error occurred: {error}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {error}")
 
 
 def validate_api_token(request: Request, db: Session):
@@ -128,7 +172,6 @@ async def base_proxy_request(
 
     key_value = None
     selected_key = None
-    max_failed_count = 3
     if api_key_header_name:
         if selected_key_obj:
             selected_key = selected_key_obj
@@ -145,17 +188,7 @@ async def base_proxy_request(
         if key_value is None:
             raise HTTPException(status_code=503, detail="API key not available.")
 
-        max_failed_count_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
-        if max_failed_count_str:
-            try:
-                max_failed_count = int(max_failed_count_str)
-                if max_failed_count < 0:
-                    logger.warning(f"Invalid max failed count '{max_failed_count_str}' from config, using default 3.")
-                    max_failed_count = 3
-            except ValueError:
-                logger.warning(
-                    f"Invalid max failed count format '{max_failed_count_str}' from config, using default 3.")
-                max_failed_count = 3
+    max_failed_count = get_max_failed_count(db) if selected_key else 3
 
     if headers is None:
         final_headers = dict(request.headers)
@@ -235,34 +268,7 @@ async def base_proxy_request(
 
 
     except httpx.RequestError as exc:
-        logger.error(f"An error occurred while requesting {exc.request.url!r}: {exc}", exc_info=True)
-        if api_key_header_name and selected_key:
-            max_failed_count_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
-            max_failed_count = 3
-            if max_failed_count_str:
-                try:
-                    max_failed_count = int(max_failed_count_str)
-                    if max_failed_count < 0:
-                        max_failed_count = 3
-                except ValueError:
-                    max_failed_count = 3
-            update_key_status_based_on_response(db, selected_key, False, max_failed_count, status_override="error")
-
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Proxy request failed: {exc}")
+        handle_proxy_error(db, selected_key, exc, "error")
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
-        if api_key_header_name and selected_key:
-            max_failed_count_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
-            max_failed_count = 3
-            if max_failed_count_str:
-                try:
-                    max_failed_count = int(max_failed_count_str)
-                    if max_failed_count < 0:
-                        max_failed_count = 3
-                except ValueError:
-                    max_failed_count = 3
-            update_key_status_based_on_response(db, selected_key, False, max_failed_count, status_override="error")
-
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail=f"An unexpected error occurred: {e}")
+        handle_proxy_error(db, selected_key, e, "error")
 

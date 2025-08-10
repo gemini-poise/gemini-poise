@@ -11,6 +11,20 @@ services:
     depends_on:
       - redis
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.1'
 
   frontend:
     image: alterem/gemini-poise-frontend
@@ -19,14 +33,42 @@ services:
     environment:
       - TZ=Asia/Shanghai
     restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
 
   redis:
-    image: redis:latest
+    image: redis:7-alpine
     volumes:
       - redis_data:/data
     environment:
       - TZ=Asia/Shanghai
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 64M
+          cpus: '0.05'
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
 
   postgres:
     image: postgres:15
