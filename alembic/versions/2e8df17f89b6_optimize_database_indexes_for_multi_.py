@@ -78,10 +78,14 @@ def upgrade() -> None:
         ))
         
     elif db_type == 'mysql':
-        # MySQL specific: Optimize for InnoDB storage engine
+        # MySQL specific: Add MySQL-optimized indexes
+        # Note: Removed ENGINE modification to avoid potential issues
         conn = op.get_bind()
+        # Add a MySQL-specific index for better performance
         conn.execute(text(
-            "ALTER TABLE api_keys ENGINE=InnoDB ROW_FORMAT=COMPRESSED"
+            "CREATE INDEX IF NOT EXISTS idx_api_keys_active_mysql "
+            "ON api_keys (id, last_used_at, status) "
+            "USING BTREE"
         ))
         
     elif db_type == 'sqlite':
@@ -103,8 +107,9 @@ def downgrade() -> None:
         conn.execute(text("DROP INDEX IF EXISTS idx_api_keys_active"))
         
     elif db_type == 'mysql':
-        # MySQL specific: Revert table optimization (optional)
-        pass
+        # MySQL specific: Remove MySQL-optimized indexes
+        conn = op.get_bind()
+        conn.execute(text("DROP INDEX IF EXISTS idx_api_keys_active_mysql ON api_keys"))
         
     elif db_type == 'sqlite':
         # SQLite specific: No specific cleanup needed
