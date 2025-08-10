@@ -15,19 +15,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.1'
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 2G
+    #       cpus: '2'
+    #     reservations:
+    #       memory: 256M
+    #       cpus: '1'
 
   frontend:
     image: alterem/gemini-poise-frontend
     ports:
-      - "8100:80"  # 只需要一个端口
+      - "8100:80"
     environment:
       - TZ=Asia/Shanghai
     depends_on:
@@ -39,14 +39,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.2'
-        reservations:
-          memory: 64M
-          cpus: '0.05'
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 256M
+    #       cpus: '0.2'
+    #     reservations:
+    #       memory: 64M
+    #       cpus: '0.05'
 
   redis:
     image: redis:7-alpine
@@ -60,14 +60,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.2'
-        reservations:
-          memory: 64M
-          cpus: '0.05'
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 256M
+    #       cpus: '0.2'
+    #     reservations:
+    #       memory: 64M
+    #       cpus: '0.05'
     command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
 
   postgres:
@@ -78,7 +78,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-      - POSTGRES_USER=postgres
+      - POSTGRES_USER=${DB_USERNAME:-postgres}
       - POSTGRES_DB=gemini_poise
       - TZ=Asia/Shanghai
     ports:

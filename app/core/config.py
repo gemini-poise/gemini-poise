@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     # Database Configuration
     DATABASE_TYPE: str
     DATABASE_URL: str
+    DB_USERNAME: Optional[str] = None
+    DB_PASSWORD: Optional[str] = None
     POOL_SIZE: Optional[int] = 20  # Increased from 10
     MAX_OVERFLOW: Optional[int] = 50  # Decreased from 100 for better resource management
     POOL_TIMEOUT: Optional[int] = 30
