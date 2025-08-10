@@ -81,8 +81,6 @@ gemini-poise/
     services:
       backend:
         image: alterem/gemini-poise
-        ports:
-          - "8100:8000"
         volumes:
           - ./.env:/app/.env
           - ./data/:/data
@@ -91,22 +89,42 @@ gemini-poise/
         depends_on:
           - redis
         restart: always
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 60s
 
       frontend:
         image: alterem/gemini-poise-frontend
         ports:
-          - "8101:80"
+          - "8100:80"
         environment:
           - TZ=Asia/Shanghai
+        depends_on:
+          - backend
         restart: always
+        healthcheck:
+          test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 30s
 
       redis:
-        image: redis:latest
+        image: redis:7-alpine
         volumes:
           - redis_data:/data
         environment:
           - TZ=Asia/Shanghai
         restart: always
+        healthcheck:
+          test: ["CMD", "redis-cli", "ping"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+        command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
 
       postgres:
         image: postgres:15
@@ -164,11 +182,18 @@ gemini-poise/
     ```
 
 4.  **验证服务是否成功启动**:
-    *   **后端**: 访问 `http://localhost:8100`。如果看到页面输出 `{"message":"Welcome to Gemini Poise AI Proxy Tool"}`，则表示后端服务已成功启动。
-    *   **前端**: 访问 `http://localhost:8101`。您将进入前端登录页面。
+    现在所有服务都通过单一端口访问，提供更好的用户体验：
+    
+    *   **🎨 前端界面**: 访问 `http://localhost:8100` 进入 Web 管理界面
         *   默认登录账号：`admin`
         *   默认登录密码：`password123`
-    *   **API 使用提示**: 登录前端后，请务必前往设置页面 (`http://localhost:8101/config`) 配置 `API Token` 字段，此字段不能为空。
+    *   **🤖 OpenAI 兼容 API**: `http://localhost:8100/v1/chat/completions`
+    *   **🧠 Gemini 纯净 API**: `http://localhost:8100/v1beta/models`
+    *   **⚙️ 管理 API**: `http://localhost:8100/api/`
+    *   **📚 API 文档**: `http://localhost:8100/docs`
+    *   **🏥 健康检查**: `http://localhost:8100/health`
+    
+    *   **API 使用提示**: 登录前端后，请务必前往设置页面 (`http://localhost:8100/config`) 配置 `API Token` 字段，此字段不能为空。
 
 ### 手动设置 (适用于开发环境)
 
@@ -243,7 +268,10 @@ gemini-poise/
     *   默认登录密码：`password123`
 
 6.  **客户端配置提示**:
-    登录前端后，请在设置页面配置您的 Gemini (或 OpenAI) 代理路径为 `http://localhost:8000`，并将密钥设置为您在配置页面中生成的 `API Token`。
+    登录前端后，请配置您的 AI 客户端使用统一端点：
+    *   **OpenAI 兼容客户端**: 设置 base URL 为 `http://localhost:8100/v1`
+    *   **Gemini 纯净 API 客户端**: 设置 base URL 为 `http://localhost:8100/v1beta`
+    *   **API 密钥**: 使用配置页面 (`http://localhost:8100/config`) 中生成的 `API Token`
 
 ## 📸 截图
 

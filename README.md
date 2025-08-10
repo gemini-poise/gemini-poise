@@ -81,8 +81,6 @@ Please ensure you have Docker and Docker Compose installed on your system.
     services:
       backend:
         image: alterem/gemini-poise
-        ports:
-          - "8100:8000"
         volumes:
           - ./.env:/app/.env
           - ./data/:/data
@@ -91,22 +89,42 @@ Please ensure you have Docker and Docker Compose installed on your system.
         depends_on:
           - redis
         restart: always
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 60s
 
       frontend:
         image: alterem/gemini-poise-frontend
         ports:
-          - "8101:80"
+          - "8100:80"  # Single unified port
         environment:
           - TZ=Asia/Shanghai
+        depends_on:
+          - backend
         restart: always
+        healthcheck:
+          test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 30s
 
       redis:
-        image: redis:latest
+        image: redis:7-alpine
         volumes:
           - redis_data:/data
         environment:
           - TZ=Asia/Shanghai
         restart: always
+        healthcheck:
+          test: ["CMD", "redis-cli", "ping"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+        command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
 
       postgres:
         image: postgres:15
@@ -163,11 +181,18 @@ Please ensure you have Docker and Docker Compose installed on your system.
     ```
 
 4.  **Verify service startup**:
-    *   **Backend**: Access `http://localhost:8100`. If you see the output `{"message":"Welcome to Gemini Poise AI Proxy Tool"}` on the page, the backend service has started successfully.
-    *   **Frontend**: Access `http://localhost:8101`. You will be directed to the frontend login page.
+    All services are now accessible through a single port for better user experience:
+    
+    *   **🎨 Frontend Interface**: Access `http://localhost:8100` to reach the web interface
         *   Default login account: `admin`
         *   Default login password: `password123`
-    *   **API Usage Tip**: After logging into the frontend, please make sure to configure the `API Token` field on the settings page (`http://localhost:8101/config`). This field cannot be empty.
+    *   **🤖 OpenAI Compatible API**: `http://localhost:8100/v1/chat/completions`
+    *   **🧠 Gemini Pure API**: `http://localhost:8100/v1beta/models`
+    *   **⚙️ Management API**: `http://localhost:8100/api/`
+    *   **📚 API Documentation**: `http://localhost:8100/docs`
+    *   **🏥 Health Check**: `http://localhost:8100/health`
+    
+    *   **API Usage Tip**: After logging into the frontend, please make sure to configure the `API Token` field on the settings page (`http://localhost:8100/config`). This field cannot be empty.
 
 ### Manual Setup (for Development Environment)
 
@@ -242,7 +267,10 @@ Please ensure you have Docker and Docker Compose installed on your system.
     *   Default login password: `password123`
 
 6.  **Client Configuration Tip**:
-    After logging into the frontend, please configure your Gemini (or OpenAI) proxy path on the settings page to `http://localhost:8000`, and set the key to the `API Token` generated on the configuration page.
+    After logging into the frontend, please configure your AI client to use the unified endpoint:
+    *   **OpenAI Compatible Clients**: Set base URL to `http://localhost:8100/v1` 
+    *   **Gemini Pure API Clients**: Set base URL to `http://localhost:8100/v1beta`
+    *   **API Key**: Use the `API Token` generated on the configuration page (`http://localhost:8100/config`)
 
 ## 📸 Screenshots
 
