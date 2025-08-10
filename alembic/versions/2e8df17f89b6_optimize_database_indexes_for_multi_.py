@@ -29,28 +29,10 @@ def create_index_safely(index_name: str, table_name: str, columns: list, unique:
     """Create index with database-specific optimizations"""
     db_type = get_database_type()
     
-    if db_type == 'postgresql':
-        # PostgreSQL: Use CONCURRENTLY to avoid blocking
-        try:
-            op.create_index(
-                index_name, table_name, columns, 
-                unique=unique, postgresql_concurrently=True
-            )
-        except Exception:
-            # Fallback to regular index creation if concurrent fails
-            op.create_index(index_name, table_name, columns, unique=unique)
-    
-    elif db_type == 'mysql':
-        # MySQL: Create index normally (MySQL handles locking well)
-        op.create_index(index_name, table_name, columns, unique=unique)
-        
-    elif db_type == 'sqlite':
-        # SQLite: Create index normally
-        op.create_index(index_name, table_name, columns, unique=unique)
-    
-    else:
-        # Fallback for other databases
-        op.create_index(index_name, table_name, columns, unique=unique)
+    # Create index normally for all databases
+    # Note: CONCURRENTLY requires running outside of transaction block
+    # For production environments, consider running these manually
+    op.create_index(index_name, table_name, columns, unique=unique)
 
 
 def upgrade() -> None:
@@ -88,9 +70,10 @@ def upgrade() -> None:
     # Database-specific optimizations
     if db_type == 'postgresql':
         # PostgreSQL specific: Add partial indexes for better performance
+        # Note: Removed CONCURRENTLY to avoid transaction block issues
         conn = op.get_bind()
         conn.execute(text(
-            "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_api_keys_active "
+            "CREATE INDEX IF NOT EXISTS idx_api_keys_active "
             "ON api_keys (id, last_used_at) WHERE status = 'active'"
         ))
         
@@ -115,8 +98,9 @@ def downgrade() -> None:
     # Remove database-specific optimizations first
     if db_type == 'postgresql':
         # PostgreSQL specific: Remove partial index
+        # Note: Removed CONCURRENTLY to avoid transaction block issues
         conn = op.get_bind()
-        conn.execute(text("DROP INDEX CONCURRENTLY IF EXISTS idx_api_keys_active"))
+        conn.execute(text("DROP INDEX IF EXISTS idx_api_keys_active"))
         
     elif db_type == 'mysql':
         # MySQL specific: Revert table optimization (optional)
