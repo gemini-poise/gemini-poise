@@ -24,7 +24,7 @@ logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 
 from app.api.api import api_router
 from app.core.database import init_redis, close_redis, optimize_sqlite
-from app.api.endpoints.proxies import pure_proxy_router, gemini_openai_proxy
+from app.api.endpoints.proxies import pure_proxy_router, gemini_openai_proxy, gemini_claude_proxy
 
 from app.core.scheduler_config import (
     scheduler,
@@ -77,6 +77,7 @@ app = FastAPI(
 
 app.include_router(api_router, prefix="/api")
 app.include_router(gemini_openai_proxy)
+app.include_router(gemini_claude_proxy.router)
 app.include_router(pure_proxy_router)
 
 
