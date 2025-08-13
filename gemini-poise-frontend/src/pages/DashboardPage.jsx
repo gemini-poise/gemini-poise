@@ -115,7 +115,7 @@ const DashboardPage = () => {
             {loadingKeySurvival && <Spin />}
             {errorKeySurvival && <Alert message={errorKeySurvival} type="error" showIcon />}
             {!loadingKeySurvival && !errorKeySurvival && (
-              <Line data={processKeySurvivalStatistics(keySurvivalStatistics)} options={keySurvivalChartOptions(t)} />
+              <Line data={processKeySurvivalStatistics(keySurvivalStatistics, t)} options={keySurvivalChartOptions(t)} />
             )}
           </Card>
         </Col>
@@ -124,7 +124,7 @@ const DashboardPage = () => {
   );
 };
 
-const processKeySurvivalStatistics = (statistics) => {
+const processKeySurvivalStatistics = (statistics, t) => {
   if (!statistics || statistics.length === 0) {
     return {
       labels: [],
@@ -151,7 +151,7 @@ const processKeySurvivalStatistics = (statistics) => {
     labels,
     datasets: [
       {
-        label: 'Total Keys',
+        label: t('dashboard.totalKeys'),
         data: totalData,
         borderColor: 'rgba(24, 144, 255, 0.8)',
         backgroundColor: 'rgba(24, 144, 255, 0.2)',
@@ -160,7 +160,7 @@ const processKeySurvivalStatistics = (statistics) => {
         hidden: true,
       },
       {
-        label: 'Active Keys',
+        label: t('dashboard.activeKeys'),
         data: activeData,
         borderColor: 'rgba(63, 134, 0, 0.8)',
         backgroundColor: 'rgba(63, 134, 0, 0.2)',
@@ -168,7 +168,7 @@ const processKeySurvivalStatistics = (statistics) => {
         tension: 0.1,
       },
       {
-        label: 'Exhausted Keys',
+        label: t('dashboard.exhaustedKeys'),
         data: exhaustedData,
         borderColor: 'rgba(250, 173, 20, 0.8)',
         backgroundColor: 'rgba(250, 173, 20, 0.2)',
@@ -176,7 +176,7 @@ const processKeySurvivalStatistics = (statistics) => {
         tension: 0.1,
       },
       {
-        label: 'Error Keys',
+        label: t('dashboard.errorKeys'),
         data: errorData,
         borderColor: 'rgba(207, 19, 34, 0.8)',
         backgroundColor: 'rgba(207, 19, 34, 0.2)',
