@@ -1,5 +1,5 @@
 import { Result, Button, Space, Typography } from 'antd';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 

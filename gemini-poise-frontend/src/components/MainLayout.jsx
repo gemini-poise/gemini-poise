@@ -1,5 +1,5 @@
 import { Layout, Breadcrumb, theme } from 'antd';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import Header from './Header';
 import Sidebar from './Sidebar';
 

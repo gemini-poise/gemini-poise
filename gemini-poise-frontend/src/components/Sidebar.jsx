@@ -1,5 +1,5 @@
 import { Layout, Menu, theme } from 'antd';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
   KeyOutlined,

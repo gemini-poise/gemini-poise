@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router';
 import '@ant-design/v5-patch-for-react-19';
 import { App } from 'antd';
 import './App.css'
