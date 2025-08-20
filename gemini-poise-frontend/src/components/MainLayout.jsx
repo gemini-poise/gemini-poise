@@ -17,7 +17,6 @@ const MainLayout = () => {
 
   const getSelectedKey = () => {
     const path = location.pathname;
-    debugger;
     if (path.includes('/keys')) return t('sidebar.apiKeys');
     if (path.includes('/about')) return t('sidebar.about');
     if (path.includes('/config')) return t('sidebar.configuration');
