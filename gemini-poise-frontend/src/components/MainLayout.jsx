@@ -1,5 +1,6 @@
 import { Layout, Breadcrumb, theme } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
@@ -8,6 +9,7 @@ const { Content } = Layout;
 const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -15,16 +17,18 @@ const MainLayout = () => {
 
   const getSelectedKey = () => {
     const path = location.pathname;
-    if (path.includes('/keys')) return 'keys';
-    if (path.includes('/config')) return 'config';
-    return 'dashboard';
+    debugger;
+    if (path.includes('/keys')) return t('sidebar.apiKeys');
+    if (path.includes('/about')) return t('sidebar.about');
+    if (path.includes('/config')) return t('sidebar.configuration');
+    return t('sidebar.dashboard');
   };
 
   const getBreadcrumbItems = () => {
     const key = getSelectedKey();
     return [
       {
-        title: <a onClick={() => navigate('/')}>Home</a>,
+        title: <a onClick={() => navigate('/')}>{t('sidebar.home')}</a>,
       },
       {
         title: key.charAt(0).toUpperCase() + key.slice(1)
