@@ -32,6 +32,7 @@
         "passwordsNotMatch": "两次输入的密码不一致"
     },
     "sidebar": {
+        "home" : "主页",
         "dashboard": "仪表板",
         "apiKeys": "API密钥",
         "configuration": "配置",
