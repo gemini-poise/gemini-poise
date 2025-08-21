@@ -166,6 +166,7 @@ def _perform_concurrent_validation(
         for future in concurrent.futures.as_completed(future_to_key):
             try:
                 key, is_valid, status_info = future.result()
+                logger.info(f"validating API Key ID {key.id} ({key.key_value[:8]}...) is valid : {is_valid}, status_info: {status_info}")
                 _update_key_status_in_thread(key.id, status_info, max_failed_count)
                 
                 if is_valid:
