@@ -101,11 +101,14 @@ def update_key_status_based_on_response(
     original_key_status = api_key.status
     original_failed_count = api_key.failed_count
     original_usage_count = api_key.usage_count
+    status_changed = False
 
     if count_usage:
         api_key.usage_count += 1
 
     if status_override:
+        if api_key.status != status_override:
+            status_changed = True
         api_key.status = status_override
         if status_override == "exhausted" or status_override == "error":
             api_key.failed_count += 1
@@ -114,6 +117,8 @@ def update_key_status_based_on_response(
     elif is_successful:
         if api_key.failed_count > 0 or api_key.status != "active":
             api_key.failed_count = 0
+            if api_key.status != "active":
+                status_changed = True
             api_key.status = "active"
             db.add(api_key)
             logger.info(f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) is now active and failed count reset, usage count: {api_key.usage_count}.")
@@ -124,12 +129,22 @@ def update_key_status_based_on_response(
 
         if api_key.failed_count >= max_failed_count and api_key.status == "active":
             api_key.status = "error"
+            status_changed = True
             db.add(api_key)
             logger.warning(
                 f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) set to error due to exceeding max failed count ({max_failed_count}), usage count: {api_key.usage_count}.")
 
     if api_key.status != original_key_status or api_key.failed_count != original_failed_count or api_key.usage_count != original_usage_count:
         db.commit()
+        
+        # 如果状态发生变化，使缓存失效
+        if status_changed:
+            try:
+                from ....crud.api_keys import invalidate_active_api_keys_cache
+                logger.info(f"🔄 [CACHE] API key {api_key.id} status changed to '{api_key.status}', invalidating cache")
+                invalidate_active_api_keys_cache()
+            except Exception as e:
+                logger.warning(f"⚠️ [CACHE] Failed to invalidate cache after status change: {e}")
     else:
         db.rollback()
 

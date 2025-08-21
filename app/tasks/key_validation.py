@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..api.endpoints.proxies.base_proxy import update_key_status_based_on_response
 from ..crud import api_keys as crud_api_keys
 from ..crud import config as crud_config
+from ..models import models
 from ..core.database import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -99,10 +100,10 @@ def _get_validation_config(db: Session) -> Tuple[str, int, float, int]:
 
 
 def _validate_single_key(
-    key: crud_api_keys.models.ApiKey,
+    key: models.ApiKey,
     validation_endpoint: str,
     timeout_seconds: float,
-) -> Tuple[crud_api_keys.models.ApiKey, bool, str]:
+) -> Tuple[models.ApiKey, bool, str]:
     """验证单个API密钥"""
     try:
         headers = VALIDATION_HEADERS.copy()
@@ -145,7 +146,7 @@ def _update_key_status_in_thread(key_id: int, status_info: str, max_failed_count
 
 
 def _perform_concurrent_validation(
-    keys_to_validate: List[crud_api_keys.models.ApiKey],
+    keys_to_validate: List[models.ApiKey],
     validation_endpoint: str,
     max_failed_count: int,
     timeout_seconds: float,
@@ -183,11 +184,11 @@ def _perform_key_validation(db: Session, status_filter: Optional[str] = None):
     """执行密钥验证的核心逻辑"""
     try:
         # 查询要验证的密钥
-        query = db.query(crud_api_keys.models.ApiKey)
+        query = db.query(models.ApiKey)
         if status_filter:
-            query = query.filter(crud_api_keys.models.ApiKey.status == status_filter)
+            query = query.filter(models.ApiKey.status == status_filter)
         else:
-            query = query.filter(crud_api_keys.models.ApiKey.status != "error")
+            query = query.filter(models.ApiKey.status != "error")
 
         keys_to_validate = query.all()
         if not keys_to_validate:

@@ -94,3 +94,16 @@ export const bulkSaveConfig = (data) => {
 export const changePassword = (data) => {
   return api.post('/users/change-password', data);
 };
+
+// 缓存管理相关API
+export const getCacheStatus = () => {
+  return api.get('/api_keys/cache/status');
+};
+
+export const invalidateCache = () => {
+  return api.post('/api_keys/cache/invalidate');
+};
+
+export const refreshCache = () => {
+  return api.post('/api_keys/cache/refresh');
+};

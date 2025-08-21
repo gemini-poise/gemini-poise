@@ -291,3 +291,80 @@ async def get_key_survival_statistics(db: db_dependency, current_user: user_depe
     _ = current_user
     statistics = crud.api_keys.get_key_survival_statistics(db, limit=60)
     return KeySurvivalStatisticsResponse(statistics=statistics)
+
+
+@router.post("/cache/invalidate")
+async def invalidate_cache(db: db_dependency, current_user: user_dependency):
+    """
+    手动使活跃API keys缓存失效。需要登录。
+    """
+    _ = current_user
+    try:
+        crud.api_keys.invalidate_active_api_keys_cache()
+        return {"message": "Cache invalidated successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to invalidate cache: {str(e)}"
+        )
+
+
+@router.post("/cache/refresh")
+async def refresh_cache(db: db_dependency, current_user: user_dependency):
+    """
+    手动刷新活跃API keys缓存。需要登录。
+    """
+    _ = current_user
+    try:
+        # 先使缓存失效
+        crud.api_keys.invalidate_active_api_keys_cache()
+        
+        # 重新获取并缓存
+        active_key_ids = crud.api_keys.get_active_api_key_ids_optimized(db)
+        
+        return {
+            "message": "Cache refreshed successfully",
+            "cached_keys_count": len(active_key_ids)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to refresh cache: {str(e)}"
+        )
+
+
+@router.get("/cache/status")
+async def get_cache_status(db: db_dependency, current_user: user_dependency):
+    """
+    获取缓存状态信息。需要登录。
+    """
+    _ = current_user
+    try:
+        cached_ids = crud.api_keys.get_cached_active_api_key_ids()
+        
+        if cached_ids is not None:
+            # 获取实际的活跃keys数量进行对比
+            actual_active_keys = crud.api_keys.get_active_api_keys(db)
+            actual_count = len(actual_active_keys)
+            
+            return {
+                "cache_status": "hit",
+                "cached_keys_count": len(cached_ids),
+                "actual_active_keys_count": actual_count,
+                "cache_accuracy": len(cached_ids) == actual_count,
+                "cache_ttl_seconds": crud.api_keys.ACTIVE_KEYS_CACHE_TTL
+            }
+        else:
+            actual_active_keys = crud.api_keys.get_active_api_keys(db)
+            return {
+                "cache_status": "miss",
+                "cached_keys_count": 0,
+                "actual_active_keys_count": len(actual_active_keys),
+                "cache_accuracy": False,
+                "cache_ttl_seconds": crud.api_keys.ACTIVE_KEYS_CACHE_TTL
+            }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get cache status: {str(e)}"
+        )

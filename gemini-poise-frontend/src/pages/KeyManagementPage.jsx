@@ -1,9 +1,11 @@
-import { Table, Button, Space, Modal, Form, Input, Select, Typography, Tooltip, App, Tag, Spin } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, Select, Typography, Tooltip, App, Tag, Spin, Collapse } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useKeyManagement } from '../hooks/useKeyManagement';
+import CacheManagement from '../components/CacheManagement';
 
 const { Title } = Typography;
 const { Option } = Select;
+const { Panel } = Collapse;
 
 const KeyManagementPage = () => {
     const [form] = Form.useForm();
@@ -141,6 +143,18 @@ const KeyManagementPage = () => {
         <App>
             <div className="p-4">
                 <Title level={2} className="text-center">{t('apiKeys.title')}</Title>
+
+                {/* 缓存管理面板 */}
+                <Collapse
+                    style={{ marginBottom: 16 }}
+                    items={[
+                        {
+                            key: 'cache-management',
+                            label: t('cache.advancedManagement'),
+                            children: <CacheManagement />
+                        }
+                    ]}
+                />
 
                 <Space className="mb-4" wrap>
                     <Input
