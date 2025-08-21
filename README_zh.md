@@ -102,6 +102,8 @@ gemini-poise/
           - "8100:80"
         environment:
           - TZ=Asia/Shanghai
+        #volumes:
+        #  - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
         depends_on:
           - backend
         restart: always

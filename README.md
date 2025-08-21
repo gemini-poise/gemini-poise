@@ -102,8 +102,10 @@ Please ensure you have Docker and Docker Compose installed on your system.
           - "8100:80"  # Single unified port
         environment:
           - TZ=Asia/Shanghai
+        #volumes:
+        #  - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
         depends_on:
-          - backend
+          - backendvolumes:
         restart: always
         healthcheck:
           test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
