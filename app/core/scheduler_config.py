@@ -72,6 +72,9 @@ def initialize_scheduler():
             seconds=active_interval_seconds,
             id="key_validation_active_task",
             replace_existing=True,
+            max_instances=1,
+            coalesce=False,
+            misfire_grace_time=0,
         )
         logger.info(
             f"Scheduled 'active' API Key validation task with interval: {active_interval_seconds} seconds."
@@ -85,6 +88,9 @@ def initialize_scheduler():
                 seconds=exhausted_interval_seconds,
                 id="key_validation_exhausted_task",
                 replace_existing=True,
+                max_instances=1,
+                coalesce=False,
+                misfire_grace_time=0,
             )
             logger.info(
                 f"Scheduled 'exhausted' API Key validation task with interval: {exhausted_interval_seconds} seconds."
@@ -102,6 +108,9 @@ def initialize_scheduler():
                 seconds=error_interval_seconds,
                 id="key_validation_error_task",
                 replace_existing=True,
+                max_instances=1,
+                coalesce=False,
+                misfire_grace_time=0,
             )
             logger.info(
                 f"Scheduled 'error' API Key validation task with interval: {error_interval_seconds} seconds."
