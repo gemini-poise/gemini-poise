@@ -451,7 +451,7 @@ def get_api_key_with_token_bucket(db: Session, required_tokens: int = 1) -> Opti
 def _select_best_api_key(available_key_ids: List[int]) -> int:
     """
     从可用的 API key 中选择最佳的一个。
-    当前实现使用加权随机选择，令牌越多权重越高。
+    优化版本：使用批量获取令牌信息，减少Redis查询次数。
     
     Args:
         available_key_ids: 可用的 API key ID 列表
@@ -462,9 +462,12 @@ def _select_best_api_key(available_key_ids: List[int]) -> int:
     if len(available_key_ids) == 1:
         return available_key_ids[0]
     
+    # 批量获取所有key的令牌信息
+    tokens_map = token_bucket_manager.get_available_tokens_batch(available_key_ids)
+    
     key_weights = []
     for key_id in available_key_ids:
-        tokens = token_bucket_manager.get_available_tokens(key_id)
+        tokens = tokens_map.get(key_id, 0.0)
         key_weights.append(max(tokens, 0.1))
     
     total_weight = sum(key_weights)

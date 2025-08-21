@@ -252,7 +252,37 @@ class TokenBucketManager:
         
         logger.info(f"🔍 [TOKEN BUCKET] Batch checking {len(api_key_ids)} API keys for {required_tokens} tokens")
         
+        # 使用批量获取方法
+        tokens_map = self.get_available_tokens_batch(api_key_ids)
+        
         available_keys = []
+        for api_key_id in api_key_ids:
+            tokens = tokens_map.get(api_key_id, 0.0)
+            if tokens >= required_tokens:
+                available_keys.append(api_key_id)
+                logger.debug(f"✅ [TOKEN BUCKET] API key {api_key_id} has {tokens:.2f} tokens (sufficient)")
+            else:
+                logger.debug(f"❌ [TOKEN BUCKET] API key {api_key_id} has {tokens:.2f} tokens (insufficient)")
+        
+        logger.info(f"📊 [TOKEN BUCKET] Batch check result: {len(available_keys)}/{len(api_key_ids)} keys have sufficient tokens")
+        return available_keys
+    
+    def get_available_tokens_batch(self, api_key_ids: List[int]) -> Dict[int, float]:
+        """
+        批量获取多个 API key 的可用令牌数（优化版本，使用pipeline）
+        
+        Args:
+            api_key_ids: API key ID 列表
+            
+        Returns:
+            Dict[int, float]: API key ID 到可用令牌数的映射
+        """
+        if not api_key_ids:
+            return {}
+        
+        logger.debug(f"🔍 [TOKEN BUCKET] Batch getting tokens for {len(api_key_ids)} API keys")
+        
+        tokens_map = {}
         current_time = time.time()
         
         # 批量获取所有桶的数据
@@ -260,14 +290,13 @@ class TokenBucketManager:
         
         try:
             # 使用pipeline批量获取数据
-            logger.info(f"⚡ [TOKEN BUCKET] Using Redis pipeline for batch operation")
             pipe = self.redis_client.pipeline()
             for key in bucket_keys:
                 pipe.get(key)
             bucket_data_list = pipe.execute()
             
-            # 检查每个桶的令牌数
-            for i, (api_key_id, bucket_data) in enumerate(zip(api_key_ids, bucket_data_list)):
+            # 处理每个桶的令牌数
+            for api_key_id, bucket_data in zip(api_key_ids, bucket_data_list):
                 try:
                     if bucket_data:
                         data = json.loads(bucket_data)
@@ -279,32 +308,31 @@ class TokenBucketManager:
                             tokens_to_add = time_passed * bucket.refill_rate
                             bucket.tokens = min(bucket.capacity, bucket.tokens + tokens_to_add)
                         
-                        if bucket.tokens >= required_tokens:
-                            available_keys.append(api_key_id)
-                            logger.debug(f"✅ [TOKEN BUCKET] API key {api_key_id} has {bucket.tokens:.2f} tokens (sufficient)")
-                        else:
-                            logger.debug(f"❌ [TOKEN BUCKET] API key {api_key_id} has {bucket.tokens:.2f} tokens (insufficient)")
+                        tokens_map[api_key_id] = bucket.tokens
+                        logger.debug(f"✅ [TOKEN BUCKET] API key {api_key_id} has {bucket.tokens:.2f} tokens")
                     else:
                         # 新桶默认是满的
-                        if self.default_capacity >= required_tokens:
-                            available_keys.append(api_key_id)
-                            logger.debug(f"🆕 [TOKEN BUCKET] New bucket for API key {api_key_id} with {self.default_capacity} tokens")
-                            
+                        tokens_map[api_key_id] = self.default_capacity
+                        logger.debug(f"🆕 [TOKEN BUCKET] New bucket for API key {api_key_id} with {self.default_capacity} tokens")
+                        
                 except Exception as e:
-                    logger.warning(f"⚠️ [TOKEN BUCKET] Error checking tokens for API key {api_key_id}: {e}")
-                    continue
+                    logger.warning(f"⚠️ [TOKEN BUCKET] Error getting tokens for API key {api_key_id}: {e}")
+                    tokens_map[api_key_id] = 0.0
             
-            logger.info(f"📊 [TOKEN BUCKET] Batch check result: {len(available_keys)}/{len(api_key_ids)} keys have sufficient tokens")
-            return available_keys
+            logger.debug(f"📊 [TOKEN BUCKET] Batch token retrieval completed for {len(tokens_map)} keys")
+            return tokens_map
             
         except Exception as e:
-            logger.error(f"💥 [TOKEN BUCKET] Error in batch token check, falling back to individual checks: {e}")
+            logger.error(f"💥 [TOKEN BUCKET] Error in batch token retrieval, falling back to individual checks: {e}")
             # 回退到逐个检查
             for api_key_id in api_key_ids:
-                if self.get_available_tokens(api_key_id) >= required_tokens:
-                    available_keys.append(api_key_id)
+                try:
+                    tokens_map[api_key_id] = self.get_available_tokens(api_key_id)
+                except Exception as individual_error:
+                    logger.error(f"Error getting tokens for API key {api_key_id}: {individual_error}")
+                    tokens_map[api_key_id] = 0.0
             
-            return available_keys
+            return tokens_map
     
     def cleanup_expired_buckets(self):
         """清理过期的令牌桶（优化版本，使用SCAN避免阻塞）"""
@@ -367,13 +395,81 @@ class OptimizedTokenBucketManager(TokenBucketManager):
     def __init__(self, redis_client: Optional[redis.Redis] = None):
         super().__init__(redis_client)
         
+        # 内存缓存，用于减少Redis查询
+        self._token_cache = {}  # {api_key_id: (tokens, timestamp)}
+        self._cache_ttl = 5  # 缓存5秒
+        
         # 尝试注册Lua脚本
         try:
             self._lua_script = self.redis_client.register_script(self._consume_token_lua_script())
-            logger.info("🚀 [TOKEN BUCKET] Optimized token bucket manager initialized with Lua script support")
+            logger.info("🚀 [TOKEN BUCKET] Optimized token bucket manager initialized with Lua script support and caching")
         except Exception as e:
             logger.warning(f"⚠️ [TOKEN BUCKET] Failed to register Lua script, falling back to original implementation: {e}")
             self._lua_script = None
+    
+    def _is_cache_valid(self, api_key_id: int) -> bool:
+        """检查缓存是否有效"""
+        if api_key_id not in self._token_cache:
+            return False
+        
+        _, cached_time = self._token_cache[api_key_id]
+        return time.time() - cached_time < self._cache_ttl
+    
+    def _get_cached_tokens(self, api_key_id: int) -> Optional[float]:
+        """从缓存获取令牌数"""
+        if self._is_cache_valid(api_key_id):
+            tokens, _ = self._token_cache[api_key_id]
+            return tokens
+        return None
+    
+    def _cache_tokens(self, api_key_id: int, tokens: float):
+        """缓存令牌数"""
+        self._token_cache[api_key_id] = (tokens, time.time())
+    
+    def _clear_expired_cache(self):
+        """清理过期的缓存项"""
+        current_time = time.time()
+        expired_keys = [
+            key for key, (_, cached_time) in self._token_cache.items()
+            if current_time - cached_time >= self._cache_ttl
+        ]
+        for key in expired_keys:
+            del self._token_cache[key]
+    
+    def get_available_tokens_batch(self, api_key_ids: List[int]) -> Dict[int, float]:
+        """
+        批量获取多个 API key 的可用令牌数（带缓存优化）
+        """
+        if not api_key_ids:
+            return {}
+        
+        # 清理过期缓存
+        self._clear_expired_cache()
+        
+        # 检查哪些key需要从Redis获取
+        tokens_map = {}
+        keys_to_fetch = []
+        
+        for api_key_id in api_key_ids:
+            cached_tokens = self._get_cached_tokens(api_key_id)
+            if cached_tokens is not None:
+                tokens_map[api_key_id] = cached_tokens
+                logger.debug(f"🎯 [TOKEN BUCKET] Using cached tokens for API key {api_key_id}: {cached_tokens:.2f}")
+            else:
+                keys_to_fetch.append(api_key_id)
+        
+        # 批量获取未缓存的key
+        if keys_to_fetch:
+            logger.debug(f"🔍 [TOKEN BUCKET] Fetching tokens from Redis for {len(keys_to_fetch)} keys")
+            fresh_tokens = super().get_available_tokens_batch(keys_to_fetch)
+            
+            # 更新缓存和结果
+            for api_key_id, tokens in fresh_tokens.items():
+                self._cache_tokens(api_key_id, tokens)
+                tokens_map[api_key_id] = tokens
+        
+        logger.debug(f"📊 [TOKEN BUCKET] Batch token retrieval completed: {len(tokens_map)} keys ({len(api_key_ids) - len(keys_to_fetch)} from cache, {len(keys_to_fetch)} from Redis)")
+        return tokens_map
     
     def get_bucket_status(self, api_key_id: int) -> Dict[str, Any]:
         """获取令牌桶状态信息（用于监控）"""
