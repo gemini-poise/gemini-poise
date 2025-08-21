@@ -99,31 +99,34 @@ def update_key_status_based_on_response(
     """
     original_key_status = api_key.status
     original_failed_count = api_key.failed_count
+    original_usage_count = api_key.usage_count
+
+    api_key.usage_count += 1
 
     if status_override:
         api_key.status = status_override
         if status_override == "exhausted" or status_override == "error":
             api_key.failed_count += 1
         db.add(api_key)
-        logger.info(f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) status overridden to '{status_override}'.")
+        logger.info(f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) status overridden to '{status_override}', usage count: {api_key.usage_count}.")
     elif is_successful:
         if api_key.failed_count > 0 or api_key.status != "active":
             api_key.failed_count = 0
             api_key.status = "active"
             db.add(api_key)
-            logger.info(f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) is now active and failed count reset.")
+            logger.info(f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) is now active and failed count reset, usage count: {api_key.usage_count}.")
     else:
         api_key.failed_count += 1
         logger.warning(
-            f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) failed, failed count: {api_key.failed_count}.")
+            f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) failed, failed count: {api_key.failed_count}, usage count: {api_key.usage_count}.")
 
         if api_key.failed_count >= max_failed_count and api_key.status == "active":
             api_key.status = "error"
             db.add(api_key)
             logger.warning(
-                f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) set to error due to exceeding max failed count ({max_failed_count}).")
+                f"API Key ID {api_key.id} ({api_key.key_value[:8]}...) set to error due to exceeding max failed count ({max_failed_count}), usage count: {api_key.usage_count}.")
 
-    if api_key.status != original_key_status or api_key.failed_count != original_failed_count:
+    if api_key.status != original_key_status or api_key.failed_count != original_failed_count or api_key.usage_count != original_usage_count:
         db.commit()
     else:
         db.rollback()
