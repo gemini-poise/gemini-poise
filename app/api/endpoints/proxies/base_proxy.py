@@ -92,7 +92,8 @@ def update_key_status_based_on_response(
         api_key,
         is_successful: bool,
         max_failed_count: int,
-        status_override: Optional[str] = None
+        status_override: Optional[str] = None,
+        count_usage: bool = True
 ):
     """
     更新状态
@@ -101,7 +102,8 @@ def update_key_status_based_on_response(
     original_failed_count = api_key.failed_count
     original_usage_count = api_key.usage_count
 
-    api_key.usage_count += 1
+    if count_usage:
+        api_key.usage_count += 1
 
     if status_override:
         api_key.status = status_override

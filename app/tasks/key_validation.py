@@ -135,11 +135,11 @@ def _update_key_status_in_thread(key_id: int, status_info: str, max_failed_count
             return
             
         if status_info == "exhausted":
-            update_key_status_based_on_response(thread_db, thread_key, False, max_failed_count, status_override="exhausted")
+            update_key_status_based_on_response(thread_db, thread_key, False, max_failed_count, status_override="exhausted", count_usage=False)
         elif status_info == "valid":
-            update_key_status_based_on_response(thread_db, thread_key, True, max_failed_count)
+            update_key_status_based_on_response(thread_db, thread_key, True, max_failed_count, count_usage=False)
         else:
-            update_key_status_based_on_response(thread_db, thread_key, False, max_failed_count, status_override="error")
+            update_key_status_based_on_response(thread_db, thread_key, False, max_failed_count, status_override="error", count_usage=False)
         
         thread_db.commit()
 
@@ -285,7 +285,7 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                 try:
                     key, is_valid, status_info = future.result()
                     
-                    # 更新数据库状态
+                    # 更新数据库状态（批量检查也不统计使用次数）
                     _update_key_status_in_thread(key.id, status_info, max_failed_count)
                     
                     # 准备返回结果
