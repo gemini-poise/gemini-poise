@@ -34,7 +34,7 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
     total: 0,
   });
 
-  const fetchKeys = useCallback(async (page = pagination.current, pageSize = pagination.pageSize, filters = { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus }) => {
+  const fetchKeys = useCallback(async (page = 1, pageSize = 10, filters = {}) => {
     setLoading(true);
     try {
       const response = await getApiKeysPaginated({
@@ -45,29 +45,38 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
         status: filters.status,
       });
       setKeys(response.data.items);
-      setPagination(prev => ({
-        ...prev,
+      setPagination({
         current: page,
         pageSize: pageSize,
         total: response.data.total,
-      }));
+      });
     } catch (error) {
       console.error("Failed to fetch API keys:", error);
       message.error(t('apiKeys.failedToLoadKeys'));
     } finally {
       setLoading(false);
     }
-  }, [pagination.current, pagination.pageSize, searchKey, minFailedCount, filterStatus, message]);
+  }, [message, t]);
 
+  // 初始化加载和筛选条件变化时的数据获取
   useEffect(() => {
-    fetchKeys(pagination.current, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus });
-  }, [searchKey, minFailedCount, filterStatus, fetchKeys]);
+    fetchKeys(1, pagination.pageSize, {
+      search_key: searchKey,
+      min_failed_count: minFailedCount,
+      status: filterStatus
+    });
+  }, [searchKey, minFailedCount, filterStatus]);
 
-  const handleTableChange = (newPagination) => {
+  // 处理表格分页变化
+  const handleTableChange = useCallback((newPagination) => {
     if (newPagination.current !== pagination.current || newPagination.pageSize !== pagination.pageSize) {
-      fetchKeys(newPagination.current, newPagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus });
+      fetchKeys(newPagination.current, newPagination.pageSize, {
+        search_key: searchKey,
+        min_failed_count: minFailedCount,
+        status: filterStatus
+      });
     }
-  };
+  }, [pagination.current, pagination.pageSize, searchKey, minFailedCount, filterStatus, fetchKeys]);
 
   const handleBulkAdd = async (values) => {
     const keysToAdd = values.keys_string.split(/[\n,]/).map(key => key.trim()).filter(key => key.length > 0);
@@ -81,7 +90,11 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       message.success(t('apiKeys.bulkAddComplete', { processed: response.data.total_processed, added: response.data.total_added }));
       bulkAddForm.resetFields();
       setBulkAddModalVisible(false);
-      await fetchKeys();
+      await fetchKeys(pagination.current, pagination.pageSize, {
+        search_key: searchKey,
+        min_failed_count: minFailedCount,
+        status: filterStatus
+      });
     } catch (error) {
       console.error("Failed to add API keys from list:", error);
       message.error(t('apiKeys.failedToAddKeys'));
@@ -102,7 +115,11 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       }
       setModalVisible(false);
       form.resetFields();
-      fetchKeys(pagination.current, pagination.pageSize);
+      fetchKeys(pagination.current, pagination.pageSize, {
+        search_key: searchKey,
+        min_failed_count: minFailedCount,
+        status: filterStatus
+      });
     } catch (error) {
       console.error("Failed to save API key:", error);
       message.error(t('apiKeys.failedToSaveKey'));
@@ -117,9 +134,17 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       await deleteApiKey(keyId);
       message.success(t('apiKeys.keyDeletedSuccess'));
       if (keys.length === 1 && pagination.current > 1) {
-        fetchKeys(pagination.current - 1, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus });
+        fetchKeys(pagination.current - 1, pagination.pageSize, {
+          search_key: searchKey,
+          min_failed_count: minFailedCount,
+          status: filterStatus
+        });
       } else {
-        fetchKeys(pagination.current, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus });
+        fetchKeys(pagination.current, pagination.pageSize, {
+          search_key: searchKey,
+          min_failed_count: minFailedCount,
+          status: filterStatus
+        });
       }
     } catch (error) {
       console.error("Failed to delete API key:", error);
@@ -178,7 +203,11 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
           const totalPagesAfterDeletion = Math.ceil(totalItemsAfterDeletion / pagination.pageSize);
           const pageToFetch = currentPage > totalPagesAfterDeletion && totalPagesAfterDeletion > 0 ? totalPagesAfterDeletion : currentPage;
 
-          fetchKeys(pageToFetch, pagination.pageSize, { search_key: searchKey, min_failed_count: minFailedCount, status: filterStatus });
+          fetchKeys(pageToFetch, pagination.pageSize, {
+            search_key: searchKey,
+            min_failed_count: minFailedCount,
+            status: filterStatus
+          });
 
         } catch (error) {
           console.error("Failed to bulk delete API keys:", error);
@@ -229,7 +258,11 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       } else {
         message.error(t('apiKeys.keyIsInvalid', { message: response.data.message }));
       }
-      await fetchKeys();
+      await fetchKeys(pagination.current, pagination.pageSize, {
+        search_key: searchKey,
+        min_failed_count: minFailedCount,
+        status: filterStatus
+      });
     } catch (error) {
       console.error("Failed to check single API key:", error);
       message.error(t('apiKeys.failedToCheckKey', { message: error.response?.data?.detail || error.message }));
@@ -256,7 +289,11 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       message.success(t('apiKeys.keysActivatedSuccess', { count: validKeyValues.length }));
       setBulkCheckModalVisible(false);
       setSelectedRowKeys([]);
-      await fetchKeys();
+      await fetchKeys(pagination.current, pagination.pageSize, {
+        search_key: searchKey,
+        min_failed_count: minFailedCount,
+        status: filterStatus
+      });
     } catch (error) {
       console.error("Failed to bulk activate API keys:", error);
       message.error(t('apiKeys.failedToActivateKeys'));
