@@ -203,7 +203,7 @@ gemini-poise/
 
 1.  **克隆项目仓库**:
     ```bash
-    git clone https://github.com/alterem/gemini-poise.git
+    git clone https://github.com/gemini-poise/gemini-poise.git
     cd gemini-poise
     ```
 

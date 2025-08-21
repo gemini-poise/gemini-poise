@@ -202,7 +202,7 @@ Please ensure you have Docker and Docker Compose installed on your system.
 
 1.  **Clone the project repository**:
     ```bash
-    git clone https://github.com/alterem/gemini-poise.git
+    git clone https://github.com/gemini-poise/gemini-poise.git
     cd gemini-poise
     ```
 
