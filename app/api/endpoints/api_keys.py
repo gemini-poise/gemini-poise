@@ -130,8 +130,9 @@ async def bulk_delete_api_keys(
     # 只有登录用户才能执行此操作
     _ = current_user
 
-    deleted_count = crud.api_keys.bulk_delete_api_keys(db, api_key_ids)
+    # 先删除相关的API调用日志，再删除API keys
     crud.api_keys.delete_api_call_logs_by_api_key_ids(db, api_key_ids)
+    deleted_count = crud.api_keys.bulk_delete_api_keys(db, api_key_ids)
 
     return {"detail": f"Successfully deleted {deleted_count} API Key(s)"}
 
@@ -145,10 +146,15 @@ async def delete_api_key(
     """
     # 只有登录用户才能执行此操作
     _ = current_user
-    db_api_key = crud.api_keys.delete_api_key(db, api_key_id=api_key_id)
+    
+    # 先检查API key是否存在
+    db_api_key = crud.api_keys.get_api_key(db, api_key_id=api_key_id)
     if db_api_key is None:
         raise HTTPException(status_code=404, detail="API Key not found")
+    
+    # 先删除相关的API调用日志，再删除API key
     crud.api_keys.delete_api_call_logs_by_api_key_ids(db, [api_key_id])
+    crud.api_keys.delete_api_key(db, api_key_id=api_key_id)
     return {"detail": "API Key deleted"}
 
 
