@@ -209,18 +209,18 @@ class ClaudeRequestTransformer:
             
             # 将 Claude 模型名称映射到 Gemini 模型名称
             claude_to_gemini_model_mapping = {
-                "claude-3-5-sonnet-20241022": "gemini-1.5-pro",
-                "claude-3-5-sonnet-20240620": "gemini-1.5-pro",
-                "claude-3-5-haiku-20241022": "gemini-1.5-flash",
-                "claude-3-opus-20240229": "gemini-1.5-pro",
-                "claude-3-sonnet-20240229": "gemini-1.5-pro",
-                "claude-3-haiku-20240307": "gemini-1.5-flash",
-                "claude-sonnet-4-20250514": "gemini-2.5-flash",
-                "claude-instant-1.2": "gemini-1.5-flash",
+                "claude-3-5-sonnet-20241022": "gemini-2.5-pro",
+                "claude-3-5-sonnet-20240620": "gemini-2.5-pro",
+                "claude-3-5-haiku-20241022": "gemini-2.5-flash",
+                "claude-3-opus-20240229": "gemini-2.5-pro",
+                "claude-3-sonnet-20240229": "gemini-2.5-pro",
+                "claude-3-haiku-20240307": "gemini-2.5-flash",
+                "claude-sonnet-4-20250514": "gemini-2.5-pro",
+                "claude-instant-1.2": "gemini-2.5-flash",
             }
             
             if model.startswith("claude-"):
-                gemini_model = claude_to_gemini_model_mapping.get(model, "gemini-1.5-pro")
+                gemini_model = claude_to_gemini_model_mapping.get(model, "gemini-2.5-pro")
                 logger.info(f"映射 Claude 模型 '{model}' 到 Gemini 模型 '{gemini_model}'")
             else:
                 gemini_model = model

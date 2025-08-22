@@ -3,7 +3,7 @@ services:
     image: alterem/gemini-poise
     volumes:
       - ./.env:/app/.env
-      - ./data/:/data
+      # - ./logs:/app/logs
     environment:
       - TZ=Asia/Shanghai
     depends_on:
