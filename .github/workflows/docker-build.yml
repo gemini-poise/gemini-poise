@@ -68,7 +68,7 @@ jobs:
     - name: Generate Changelog
       id: changelog
       run: |
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1 2>/dev/null || echo "")
         echo "::debug::Previous tag found: '$PREVIOUS_TAG'"
 
         CHANGELOG_CONTENT=""
