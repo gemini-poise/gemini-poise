@@ -346,31 +346,70 @@ async def get_cache_status(db: db_dependency, current_user: user_dependency):
     """
     _ = current_user
     try:
+        from ...crud.api_keys_cache import get_cache_statistics
+        
+        # 获取缓存统计数据
+        cache_stats = get_cache_statistics()
+        
+        # 获取当前缓存状态
         cached_ids = crud.api_keys.get_cached_active_api_key_ids()
+        actual_active_keys = crud.api_keys.get_active_api_keys(db)
+        actual_count = len(actual_active_keys)
         
         if cached_ids is not None:
-            # 获取实际的活跃keys数量进行对比
-            actual_active_keys = crud.api_keys.get_active_api_keys(db)
-            actual_count = len(actual_active_keys)
-            
-            return {
-                "cache_status": "hit",
-                "cached_keys_count": len(cached_ids),
-                "actual_active_keys_count": actual_count,
-                "cache_accuracy": len(cached_ids) == actual_count,
-                "cache_ttl_seconds": crud.api_keys.ACTIVE_KEYS_CACHE_TTL
-            }
+            current_status = "hit"
+            cached_count = len(cached_ids)
+            accuracy = cached_count == actual_count
         else:
-            actual_active_keys = crud.api_keys.get_active_api_keys(db)
-            return {
-                "cache_status": "miss",
-                "cached_keys_count": 0,
-                "actual_active_keys_count": len(actual_active_keys),
-                "cache_accuracy": False,
-                "cache_ttl_seconds": crud.api_keys.ACTIVE_KEYS_CACHE_TTL
+            current_status = "miss"
+            cached_count = 0
+            accuracy = False
+        
+        return {
+            "cache_status": current_status,
+            "cached_keys_count": cached_count,
+            "actual_active_keys_count": actual_count,
+            "cache_accuracy": accuracy,
+            "cache_ttl_seconds": crud.api_keys.ACTIVE_KEYS_CACHE_TTL,
+            # 新增真实统计数据
+            "statistics": {
+                "total_requests": cache_stats["total_requests"],
+                "cache_hits": cache_stats["cache_hits"],
+                "cache_misses": cache_stats["cache_misses"],
+                "hit_rate": cache_stats["hit_rate"],
+                "duration_hours": cache_stats["duration_hours"],
+                "start_time": cache_stats["start_time"],
+                "last_reset_time": cache_stats["last_reset_time"]
             }
+        }
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get cache status: {str(e)}"
+        )
+
+
+@router.post("/cache/reset-stats")
+async def reset_cache_statistics_endpoint(db: db_dependency, current_user: user_dependency):
+    """
+    重置缓存统计数据。需要登录。
+    """
+    _ = current_user
+    try:
+        from ...crud.api_keys_cache import reset_cache_statistics
+        
+        success = reset_cache_statistics()
+        if success:
+            return {"message": "缓存统计数据已重置"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to reset cache statistics"
+            )
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset cache statistics: {str(e)}"
         )

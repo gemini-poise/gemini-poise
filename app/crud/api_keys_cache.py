@@ -16,6 +16,11 @@ ACTIVE_KEYS_CACHE_KEY = "active_api_keys_cache"
 ACTIVE_KEYS_CACHE_TTL = 300  # 5分钟缓存
 ACTIVE_KEYS_LAST_UPDATE_KEY = "active_api_keys_last_update"
 
+# 缓存统计配置
+CACHE_STATS_KEY = "api_keys_cache_stats"
+CACHE_STATS_TTL = 86400 * 7  # 7天统计数据
+CACHE_STATS_RESET_KEY = "api_keys_cache_stats_reset"
+
 
 def get_redis_client():
     """获取Redis客户端实例"""
@@ -43,6 +48,7 @@ def get_cached_active_api_key_ids() -> Optional[List[int]]:
         cached_data = redis_client.get(ACTIVE_KEYS_CACHE_KEY)
         if not cached_data:
             logger.debug("No cached active API keys found")
+            record_cache_access(hit=False)
             return None
         
         # 检查缓存是否过期
@@ -51,15 +57,18 @@ def get_cached_active_api_key_ids() -> Optional[List[int]]:
             last_update_time = float(last_update)
             if time.time() - last_update_time > ACTIVE_KEYS_CACHE_TTL:
                 logger.debug("Cached active API keys expired")
+                record_cache_access(hit=False)
                 return None
         
         # 解析缓存数据
         key_ids = json.loads(cached_data)
         logger.debug(f"🎯 [CACHE] Retrieved {len(key_ids)} active API key IDs from cache")
+        record_cache_access(hit=True)
         return key_ids
         
     except Exception as e:
         logger.warning(f"⚠️ [CACHE] Failed to get cached active API keys: {e}")
+        record_cache_access(hit=False)
         return None
 
 
@@ -96,3 +105,121 @@ def invalidate_active_api_keys_cache():
         logger.info("🗑️ [CACHE] Invalidated active API keys cache")
     except Exception as e:
         logger.error(f"❌ [CACHE] Failed to invalidate active API keys cache: {e}")
+
+
+def record_cache_access(hit: bool):
+    """
+    记录缓存访问统计
+    
+    Args:
+        hit: 是否命中缓存
+    """
+    try:
+        redis_client = get_redis_client()
+        
+        # 获取当前统计数据
+        stats_data = redis_client.get(CACHE_STATS_KEY)
+        if stats_data:
+            stats = json.loads(stats_data)
+        else:
+            stats = {
+                "total_requests": 0,
+                "cache_hits": 0,
+                "cache_misses": 0,
+                "start_time": time.time(),
+                "last_reset_time": None
+            }
+        
+        # 更新统计
+        stats["total_requests"] += 1
+        if hit:
+            stats["cache_hits"] += 1
+        else:
+            stats["cache_misses"] += 1
+        
+        # 保存统计数据
+        redis_client.setex(CACHE_STATS_KEY, CACHE_STATS_TTL, json.dumps(stats))
+        
+    except Exception as e:
+        logger.warning(f"⚠️ [CACHE] Failed to record cache access: {e}")
+
+
+def get_cache_statistics():
+    """
+    获取缓存统计数据
+    
+    Returns:
+        dict: 包含缓存统计信息的字典
+    """
+    try:
+        redis_client = get_redis_client()
+        
+        stats_data = redis_client.get(CACHE_STATS_KEY)
+        if not stats_data:
+            return {
+                "total_requests": 0,
+                "cache_hits": 0,
+                "cache_misses": 0,
+                "hit_rate": 0.0,
+                "start_time": None,
+                "last_reset_time": None,
+                "duration_hours": 0.0
+            }
+        
+        stats = json.loads(stats_data)
+        
+        # 计算命中率
+        total = stats.get("total_requests", 0)
+        hits = stats.get("cache_hits", 0)
+        hit_rate = (hits / total * 100) if total > 0 else 0.0
+        
+        # 计算运行时长
+        start_time = stats.get("start_time", time.time())
+        duration_hours = (time.time() - start_time) / 3600
+        
+        return {
+            "total_requests": total,
+            "cache_hits": hits,
+            "cache_misses": stats.get("cache_misses", 0),
+            "hit_rate": round(hit_rate, 2),
+            "start_time": start_time,
+            "last_reset_time": stats.get("last_reset_time"),
+            "duration_hours": round(duration_hours, 2)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ [CACHE] Failed to get cache statistics: {e}")
+        return {
+            "total_requests": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "hit_rate": 0.0,
+            "start_time": None,
+            "last_reset_time": None,
+            "duration_hours": 0.0
+        }
+
+
+def reset_cache_statistics():
+    """
+    重置缓存统计数据
+    """
+    try:
+        redis_client = get_redis_client()
+        
+        reset_stats = {
+            "total_requests": 0,
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "start_time": time.time(),
+            "last_reset_time": time.time()
+        }
+        
+        redis_client.setex(CACHE_STATS_KEY, CACHE_STATS_TTL, json.dumps(reset_stats))
+        logger.info("🔄 [CACHE] Reset cache statistics")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ [CACHE] Failed to reset cache statistics: {e}")
+        return False

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Space, Statistic, Row, Col, Tag, Alert, Spin, App } from 'antd';
-import { ReloadOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { ReloadOutlined, DeleteOutlined, InfoCircleOutlined, ClearOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { getCacheStatus, invalidateCache, refreshCache } from '../api/api';
+import { getCacheStatus, invalidateCache, refreshCache, resetCacheStatistics } from '../api/api';
 
 const CacheManagement = () => {
     const { t } = useTranslation();
@@ -47,6 +47,20 @@ const CacheManagement = () => {
         } catch (error) {
             console.error('Failed to refresh cache:', error);
             message.error(t('cache.refreshError'));
+        } finally {
+            setOperationLoading(false);
+        }
+    };
+
+    const handleResetCacheStatistics = async () => {
+        setOperationLoading(true);
+        try {
+            await resetCacheStatistics();
+            message.success(t('cache.resetStatsSuccess'));
+            await fetchCacheStatus();
+        } catch (error) {
+            console.error('Failed to reset cache statistics:', error);
+            message.error(t('cache.resetStatsError'));
         } finally {
             setOperationLoading(false);
         }
@@ -147,10 +161,47 @@ const CacheManagement = () => {
                         <Col span={12}>
                             <Statistic
                                 title={t('cache.hitRate')}
-                                value={cacheStatus.cache_status === 'hit' ? '100%' : '0%'}
+                                value={cacheStatus.statistics?.hit_rate || 0}
+                                suffix="%"
+                                precision={2}
                                 valueStyle={{ 
-                                    color: cacheStatus.cache_status === 'hit' ? '#3f8600' : '#cf1322' 
+                                    color: (cacheStatus.statistics?.hit_rate || 0) >= 70 ? '#3f8600' : 
+                                           (cacheStatus.statistics?.hit_rate || 0) >= 40 ? '#d48806' : '#cf1322'
                                 }}
+                            />
+                        </Col>
+                    </Row>
+
+                    {/* 新增详细统计信息 */}
+                    <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={6}>
+                            <Statistic
+                                title={t('cache.totalRequests')}
+                                value={cacheStatus.statistics?.total_requests || 0}
+                                valueStyle={{ fontSize: '16px' }}
+                            />
+                        </Col>
+                        <Col span={6}>
+                            <Statistic
+                                title={t('cache.cacheHits')}
+                                value={cacheStatus.statistics?.cache_hits || 0}
+                                valueStyle={{ color: '#3f8600', fontSize: '16px' }}
+                            />
+                        </Col>
+                        <Col span={6}>
+                            <Statistic
+                                title={t('cache.cacheMisses')}
+                                value={cacheStatus.statistics?.cache_misses || 0}
+                                valueStyle={{ color: '#cf1322', fontSize: '16px' }}
+                            />
+                        </Col>
+                        <Col span={6}>
+                            <Statistic
+                                title={t('cache.runningHours')}
+                                value={cacheStatus.statistics?.duration_hours || 0}
+                                suffix={t('cache.hours')}
+                                precision={1}
+                                valueStyle={{ fontSize: '16px' }}
                             />
                         </Col>
                     </Row>
@@ -180,6 +231,13 @@ const CacheManagement = () => {
                             loading={operationLoading}
                         >
                             {t('cache.invalidateCache')}
+                        </Button>
+                        <Button
+                            icon={<ClearOutlined />}
+                            onClick={handleResetCacheStatistics}
+                            loading={operationLoading}
+                        >
+                            {t('cache.resetStats')}
                         </Button>
                     </Space>
                 </>

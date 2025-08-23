@@ -107,3 +107,7 @@ export const invalidateCache = () => {
 export const refreshCache = () => {
   return api.post('/api_keys/cache/refresh');
 };
+
+export const resetCacheStatistics = () => {
+  return api.post('/api_keys/cache/reset-stats');
+};

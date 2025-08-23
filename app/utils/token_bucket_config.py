@@ -20,7 +20,16 @@ class TokenBucketConfig:
         "bucket_ttl": 3600,
         "enable_token_bucket": True,
         "fallback_to_random": True,
-        "cleanup_interval": 300,  # 5分钟
+        "cleanup_interval": 300,  # 5分钟（保持兼容性）
+        # 新增动态过期配置
+        "enable_lazy_cleanup": True,  # 启用懒删除
+        "enable_lru_eviction": True,  # 启用LRU淘汰
+        "max_buckets": 1000,  # 最大bucket数量
+        "high_freq_ttl": 3600,  # 高频使用TTL（1小时）
+        "medium_freq_ttl": 1800,  # 中频使用TTL（30分钟）
+        "low_freq_ttl": 300,  # 低频使用TTL（5分钟）
+        "high_freq_threshold": 100,  # 高频使用阈值
+        "medium_freq_threshold": 10,  # 中频使用阈值
     }
     
     CONFIG_PREFIX = "token_bucket_"
@@ -137,6 +146,58 @@ class TokenBucketConfig:
     def should_fallback_to_random(cls, db: Session) -> bool:
         """检查是否应该回退到随机选择"""
         return cls.get_config(db, "fallback_to_random", True)
+    
+    @classmethod
+    def is_lazy_cleanup_enabled(cls, db: Session) -> bool:
+        """检查是否启用懒删除"""
+        return cls.get_config(db, "enable_lazy_cleanup", True)
+    
+    @classmethod
+    def is_lru_eviction_enabled(cls, db: Session) -> bool:
+        """检查是否启用LRU淘汰"""
+        return cls.get_config(db, "enable_lru_eviction", True)
+    
+    @classmethod
+    def get_max_buckets(cls, db: Session) -> int:
+        """获取最大bucket数量"""
+        return cls.get_config(db, "max_buckets", 1000)
+    
+    @classmethod
+    def calculate_dynamic_ttl(cls, db: Session, usage_frequency: int) -> int:
+        """
+        根据使用频率计算动态TTL
+        
+        Args:
+            db: 数据库会话
+            usage_frequency: 使用频率（单位时间内访问次数）
+            
+        Returns:
+            TTL秒数
+        """
+        high_threshold = cls.get_config(db, "high_freq_threshold", 100)
+        medium_threshold = cls.get_config(db, "medium_freq_threshold", 10)
+        
+        if usage_frequency >= high_threshold:
+            return cls.get_config(db, "high_freq_ttl", 3600)
+        elif usage_frequency >= medium_threshold:
+            return cls.get_config(db, "medium_freq_ttl", 1800)
+        else:
+            return cls.get_config(db, "low_freq_ttl", 300)
+    
+    @classmethod
+    def get_cleanup_strategy_config(cls, db: Session) -> Dict[str, Any]:
+        """获取清理策略配置"""
+        return {
+            "enable_lazy_cleanup": cls.is_lazy_cleanup_enabled(db),
+            "enable_lru_eviction": cls.is_lru_eviction_enabled(db),
+            "max_buckets": cls.get_max_buckets(db),
+            "cleanup_interval": cls.get_config(db, "cleanup_interval", 300),
+            "high_freq_threshold": cls.get_config(db, "high_freq_threshold", 100),
+            "medium_freq_threshold": cls.get_config(db, "medium_freq_threshold", 10),
+            "high_freq_ttl": cls.get_config(db, "high_freq_ttl", 3600),
+            "medium_freq_ttl": cls.get_config(db, "medium_freq_ttl", 1800),
+            "low_freq_ttl": cls.get_config(db, "low_freq_ttl", 300),
+        }
 
 
 # 配置验证函数
@@ -197,5 +258,40 @@ def validate_token_bucket_config(config: Dict[str, Any]) -> Dict[str, str]:
                 errors["cleanup_interval"] = "清理间隔不能超过1小时"
         except (ValueError, TypeError):
             errors["cleanup_interval"] = "清理间隔必须是有效的整数"
+    
+    # 验证最大bucket数量
+    if "max_buckets" in config:
+        try:
+            max_buckets = int(config["max_buckets"])
+            if max_buckets < 10:
+                errors["max_buckets"] = "最大bucket数量不能小于10"
+            elif max_buckets > 10000:
+                errors["max_buckets"] = "最大bucket数量不能超过10000"
+        except (ValueError, TypeError):
+            errors["max_buckets"] = "最大bucket数量必须是有效的整数"
+    
+    # 验证频率阈值
+    for threshold_key in ["high_freq_threshold", "medium_freq_threshold"]:
+        if threshold_key in config:
+            try:
+                threshold = int(config[threshold_key])
+                if threshold < 1:
+                    errors[threshold_key] = "频率阈值必须大于0"
+                elif threshold > 10000:
+                    errors[threshold_key] = "频率阈值不能超过10000"
+            except (ValueError, TypeError):
+                errors[threshold_key] = "频率阈值必须是有效的整数"
+    
+    # 验证动态TTL配置
+    for ttl_key in ["high_freq_ttl", "medium_freq_ttl", "low_freq_ttl"]:
+        if ttl_key in config:
+            try:
+                ttl = int(config[ttl_key])
+                if ttl < 60:
+                    errors[ttl_key] = f"{ttl_key} 不能小于60秒"
+                elif ttl > 86400:
+                    errors[ttl_key] = f"{ttl_key} 不能超过24小时"
+            except (ValueError, TypeError):
+                errors[ttl_key] = f"{ttl_key} 必须是有效的整数"
     
     return errors

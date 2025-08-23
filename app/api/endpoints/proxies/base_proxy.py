@@ -105,6 +105,8 @@ def update_key_status_based_on_response(
 
     if count_usage:
         api_key.usage_count += 1
+        # 更新最后使用时间
+        api_key.last_used_at = datetime.now(timezone.utc)
 
     if status_override:
         if api_key.status != status_override:
