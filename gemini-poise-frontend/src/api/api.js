@@ -74,7 +74,15 @@ export const bulkDeleteApiKeys = (data) => {
 };
 
 export const bulkCheckApiKeys = (key_ids) => {
-  return api.post('/api_keys/bulk-check', { key_ids }, {
+  return api.post('/api_keys/bulk-check', { key_ids });
+};
+
+export const getBulkCheckTaskStatus = (taskId) => {
+  return api.get(`/api_keys/bulk-check/${taskId}/status`);
+};
+
+export const bulkCheckApiKeysSync = (key_ids) => {
+  return api.post('/api_keys/bulk-check-sync', { key_ids }, {
     timeout: 120000
   });
 };

@@ -1,4 +1,4 @@
-import { Table, Button, Space, Modal, Form, Input, Select, Typography, Tooltip, App, Tag, Spin, Collapse } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, Select, Typography, Tooltip, App, Tag, Spin, Collapse, Progress } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { useKeyManagement } from '../hooks/useKeyManagement';
 import CacheManagement from '../components/CacheManagement';
@@ -43,6 +43,9 @@ const KeyManagementPage = () => {
         setBulkCheckModalVisible,
         bulkCheckResults,
         bulkChecking,
+        bulkCheckProgress,
+        bulkCheckStatus,
+        stopBulkCheckTask,
         handleBulkCheckKeys,
         handleCheckSingleKey,
         handleBulkActivateKeys,
@@ -241,6 +244,14 @@ const KeyManagementPage = () => {
                     open={bulkCheckModalVisible}
                     onCancel={() => setBulkCheckModalVisible(false)}
                     footer={[
+                        ...(bulkChecking ? [
+                            <Button
+                                key="cancel"
+                                onClick={stopBulkCheckTask}
+                            >
+                                {t('apiKeys.cancelCheck')}
+                            </Button>
+                        ] : []),
                         <Button
                             key="deleteInvalid"
                             danger
@@ -254,7 +265,7 @@ const KeyManagementPage = () => {
                                     .filter(id => id !== null);
                                   handleBulkDelete(invalidKeyIds, t('apiKeys.confirmDeleteInvalidError'));
                               }}
-                              disabled={bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
+                              disabled={bulkChecking || bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
                           >
                               {t('apiKeys.deleteInvalidErrorKeys')}
                           </Button>,
@@ -267,20 +278,36 @@ const KeyManagementPage = () => {
                                       .map(result => result.key_value);
                                   handleBulkActivateKeys(validKeyValues);
                               }}
-                              disabled={bulkCheckResults.filter(r => r.status === 'valid').length === 0}
+                              disabled={bulkChecking || bulkCheckResults.filter(r => r.status === 'valid').length === 0}
                           >
                               {t('apiKeys.activateValidKeys')}
                           </Button>,
-                          <Button key="close" onClick={() => setBulkCheckModalVisible(false)}>
+                          <Button key="close" onClick={() => setBulkCheckModalVisible(false)} disabled={bulkChecking}>
                               {t('apiKeys.close')}
                           </Button>,
                     ]}
                     width={1000}
                 >
                     {bulkChecking ? (
-                        <div style={{ textAlign: 'center', padding: '50px 0' }}>
-                            <Spin size="large" />
-                            <p style={{ marginTop: '16px' }}>{t('apiKeys.checking')}</p>
+                        <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <Progress 
+                                    type="circle" 
+                                    percent={bulkCheckProgress} 
+                                    size={120}
+                                    status={bulkCheckStatus === 'failed' ? 'exception' : 'active'}
+                                />
+                            </div>
+                            <h3>
+                                {bulkCheckStatus === 'pending' && t('apiKeys.checkingPending')}
+                                {bulkCheckStatus === 'running' && `${t('apiKeys.checkingInProgress')} ${bulkCheckProgress.toFixed(1)}%`}
+                                {bulkCheckStatus === 'failed' && t('apiKeys.checkingFailed')}
+                            </h3>
+                            <p style={{ color: '#666' }}>
+                                {bulkCheckStatus === 'running' && t('apiKeys.checkingDescription')}
+                                {bulkCheckStatus === 'pending' && t('apiKeys.checkingPendingDescription')}
+                                {bulkCheckStatus === 'failed' && t('apiKeys.checkingFailedDescription')}
+                            </p>
                         </div>
                     ) : bulkCheckResults.length > 0 ? (
                         <Table

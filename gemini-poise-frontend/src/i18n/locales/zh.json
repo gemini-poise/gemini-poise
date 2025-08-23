@@ -151,7 +151,15 @@
         "noValidKeysToActivate": "没有可激活的有效API密钥。",
         "keysActivatedSuccess": "成功激活了{{count}}个API密钥。",
         "activatingKeys": "正在激活密钥...",
-        "failedToActivateKeys": "激活API密钥失败。"
+        "failedToActivateKeys": "激活API密钥失败。",
+        "cancelCheck": "取消检测",
+        "checkingPending": "准备开始检测...",
+        "checkingInProgress": "检测进行中...",
+        "checkingFailed": "检测失败",
+        "checkingCancelled": "批量检测已取消",
+        "checkingDescription": "检测可能需要几分钟，请耐心等待",
+        "checkingPendingDescription": "正在启动批量检测任务",
+        "checkingFailedDescription": "请检查网络连接或稍后重试"
     },
     "config": {
         "title": "配置",

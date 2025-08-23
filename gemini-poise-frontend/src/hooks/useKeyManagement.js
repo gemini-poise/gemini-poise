@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { App, Modal } from 'antd';
 import {
   getApiKeysPaginated,
@@ -8,6 +8,7 @@ import {
   deleteApiKey,
   bulkDeleteApiKeys,
   bulkCheckApiKeys,
+  getBulkCheckTaskStatus,
   checkApiKey,
 } from '../api/api';
 
@@ -25,6 +26,11 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
   const [bulkCheckModalVisible, setBulkCheckModalVisible] = useState(false);
   const [bulkCheckResults, setBulkCheckResults] = useState([]);
   const [bulkChecking, setBulkChecking] = useState(false);
+  const [bulkCheckProgress, setBulkCheckProgress] = useState(0);
+  const [bulkCheckTaskId, setBulkCheckTaskId] = useState(null);
+  const [bulkCheckStatus, setBulkCheckStatus] = useState('pending'); // pending, running, completed, failed
+
+  const bulkCheckPollingRef = useRef(null);
 
   const { message } = App.useApp();
 
@@ -233,20 +239,110 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
 
     setBulkChecking(true);
     setBulkCheckResults([]);
+    setBulkCheckProgress(0);
+    setBulkCheckStatus('pending');
     setBulkCheckModalVisible(true);
 
     try {
+      // 启动异步任务
       const response = await bulkCheckApiKeys(selectedRowKeys);
-      setBulkCheckResults(response.data.results);
-      message.success(t('apiKeys.bulkCheckCompleted'));
-      setSelectedRowKeys([]);
+      const taskId = response.data.task_id;
+      setBulkCheckTaskId(taskId);
+      
+      message.success(response.data.message);
+      
+      // 开始轮询任务状态
+      startPollingTaskStatus(taskId);
+      
     } catch (error) {
-      console.error("Failed to bulk check API keys:", error);
+      console.error("Failed to start bulk check task:", error);
       message.error(t('apiKeys.failedToBulkCheck'));
-      setBulkCheckResults([]);
-    } finally {
       setBulkChecking(false);
+      setBulkCheckStatus('failed');
     }
+  };
+
+  const startPollingTaskStatus = (taskId) => {
+    setBulkCheckStatus('running');
+    
+    const pollStatus = async () => {
+      try {
+        const response = await getBulkCheckTaskStatus(taskId);
+        const taskData = response.data;
+        
+        setBulkCheckProgress(taskData.progress || 0);
+        setBulkCheckStatus(taskData.status);
+        
+        if (taskData.status === 'completed') {
+          setBulkCheckResults(taskData.results || []);
+          setBulkChecking(false);
+          setSelectedRowKeys([]);
+          message.success(t('apiKeys.bulkCheckCompleted'));
+          
+          // 立即清理定时器，防止重复请求
+          if (bulkCheckPollingRef.current) {
+            clearInterval(bulkCheckPollingRef.current);
+            bulkCheckPollingRef.current = null;
+          }
+          return; // 立即退出，不继续轮询
+        } else if (taskData.status === 'failed') {
+          setBulkChecking(false);
+          message.error(taskData.error || t('apiKeys.failedToBulkCheck'));
+          
+          // 立即清理定时器
+          if (bulkCheckPollingRef.current) {
+            clearInterval(bulkCheckPollingRef.current);
+            bulkCheckPollingRef.current = null;
+          }
+          return; // 立即退出，不继续轮询
+        }
+        // 如果状态是 running 或 pending，继续轮询（通过定时器）
+        
+      } catch (error) {
+        console.error("Failed to get task status:", error);
+        setBulkChecking(false);
+        setBulkCheckStatus('failed');
+        message.error(t('apiKeys.failedToBulkCheck'));
+        
+        // 出错时也清理定时器
+        if (bulkCheckPollingRef.current) {
+          clearInterval(bulkCheckPollingRef.current);
+          bulkCheckPollingRef.current = null;
+        }
+      }
+    };
+    
+    // 立即执行一次
+    pollStatus();
+    
+    // 每2秒轮询一次，但需要检查轮询是否还应该继续
+    bulkCheckPollingRef.current = setInterval(() => {
+      // 如果定时器已被清理，直接返回
+      if (!bulkCheckPollingRef.current) {
+        return;
+      }
+      pollStatus();
+    }, 2000);
+  };
+
+  // 清理轮询
+  useEffect(() => {
+    return () => {
+      if (bulkCheckPollingRef.current) {
+        clearInterval(bulkCheckPollingRef.current);
+        bulkCheckPollingRef.current = null;
+      }
+    };
+  }, []);
+
+  const stopBulkCheckTask = () => {
+    if (bulkCheckPollingRef.current) {
+      clearInterval(bulkCheckPollingRef.current);
+      bulkCheckPollingRef.current = null;
+    }
+    setBulkChecking(false);
+    setBulkCheckStatus('cancelled');
+    message.info(t('apiKeys.checkingCancelled'));
   };
 
   const handleCheckSingleKey = async (keyId) => {
@@ -333,6 +429,9 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
     setBulkCheckModalVisible,
     bulkCheckResults,
     bulkChecking,
+    bulkCheckProgress,
+    bulkCheckStatus,
+    stopBulkCheckTask,
     handleBulkCheckKeys,
     handleCheckSingleKey,
     handleBulkActivateKeys,

@@ -1,4 +1,8 @@
 import logging
+import asyncio
+import uuid
+import json
+from datetime import datetime, timezone
 from typing import List, Dict, Type, TypeVar, Optional, Tuple
 import concurrent.futures
 
@@ -21,6 +25,11 @@ DEFAULT_CONCURRENT_WORKERS = 1
 DEFAULT_TIMEOUT = 10.0
 DEFAULT_MAX_FAILED_COUNT = 3
 DEFAULT_MODEL_NAME = "gemini-1.5-flash"
+
+# Redis任务存储配置
+BULK_CHECK_TASK_PREFIX = "bulk_check_task:"
+BULK_CHECK_TASK_TTL = 3600  # 1小时过期（运行中的任务）
+BULK_CHECK_COMPLETED_TASK_TTL = 60  # 1分钟过期（已完成的任务）
 
 # 验证请求的固定头部和数据
 VALIDATION_HEADERS = {
@@ -48,6 +57,223 @@ VALIDATION_JSON_DATA = {
         },
     },
 }
+
+
+def _get_redis_client():
+    """获取Redis客户端"""
+    from ..crud.api_keys_cache import get_redis_client
+    return get_redis_client()
+
+
+def create_bulk_check_task(key_ids: List[int]) -> str:
+    """
+    创建批量检测任务，返回任务ID
+    """
+    task_id = str(uuid.uuid4())
+    
+    try:
+        redis_client = _get_redis_client()
+        
+        task_data = {
+            "task_id": task_id,
+            "key_ids": key_ids,
+            "status": "pending",
+            "progress": 0,
+            "total_keys": len(key_ids),
+            "completed_keys": 0,
+            "results": [],
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "started_at": None,
+            "finished_at": None,
+            "error": None
+        }
+        
+        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
+        redis_client.setex(redis_key, BULK_CHECK_TASK_TTL, json.dumps(task_data))
+        
+        logger.info(f"Created bulk check task {task_id} for {len(key_ids)} keys")
+        return task_id
+        
+    except Exception as e:
+        logger.error(f"Failed to create bulk check task: {e}")
+        raise
+
+
+def get_bulk_check_task_status(task_id: str) -> Optional[Dict]:
+    """
+    获取批量检测任务状态
+    """
+    try:
+        redis_client = _get_redis_client()
+        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
+        
+        task_data = redis_client.get(redis_key)
+        if not task_data:
+            return None
+            
+        return json.loads(task_data)
+        
+    except Exception as e:
+        logger.error(f"Failed to get bulk check task status: {e}")
+        return None
+
+
+def delete_bulk_check_task(task_id: str) -> bool:
+    """
+    删除批量检测任务数据
+    """
+    try:
+        redis_client = _get_redis_client()
+        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
+        
+        result = redis_client.delete(redis_key)
+        logger.info(f"Deleted bulk check task {task_id} from Redis")
+        return result > 0
+        
+    except Exception as e:
+        logger.error(f"Failed to delete bulk check task {task_id}: {e}")
+        return False
+
+
+def update_bulk_check_task(task_id: str, **updates):
+    """
+    更新批量检测任务状态
+    """
+    try:
+        redis_client = _get_redis_client()
+        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
+        
+        task_data = redis_client.get(redis_key)
+        if not task_data:
+            logger.warning(f"Task {task_id} not found for update")
+            return
+            
+        task_dict = json.loads(task_data)
+        task_dict.update(updates)
+        
+        # 更新进度百分比
+        if "completed_keys" in updates:
+            total_keys = task_dict.get("total_keys", 1)
+            completed = task_dict.get("completed_keys", 0)
+            task_dict["progress"] = round((completed / total_keys) * 100, 2)
+        
+        # 如果任务完成或失败，使用较短的TTL
+        task_status = task_dict.get("status", "pending")
+        ttl = BULK_CHECK_COMPLETED_TASK_TTL if task_status in ["completed", "failed"] else BULK_CHECK_TASK_TTL
+        
+        redis_client.setex(redis_key, ttl, json.dumps(task_dict))
+        
+        if task_status in ["completed", "failed"]:
+            logger.info(f"Task {task_id} {task_status}, TTL set to {ttl} seconds")
+        
+    except Exception as e:
+        logger.error(f"Failed to update bulk check task {task_id}: {e}")
+
+
+def execute_bulk_check_task_sync(task_id: str):
+    """
+    同步执行批量检测任务（用于 BackgroundTasks）
+    """
+    try:
+        # 获取任务信息
+        task_data = get_bulk_check_task_status(task_id)
+        if not task_data:
+            logger.error(f"Task {task_id} not found")
+            return
+            
+        # 更新任务状态为运行中
+        update_bulk_check_task(
+            task_id,
+            status="running",
+            started_at=datetime.now(timezone.utc).isoformat()
+        )
+        
+        key_ids = task_data["key_ids"]
+        results = []
+        
+        # 创建新的数据库会话
+        db = SessionLocal()
+        try:
+            logger.info(f"Starting bulk check task {task_id} for {len(key_ids)} keys")
+            
+            # 调用原有的检测函数
+            results = check_keys_validity(db, key_ids, task_id=task_id)
+            
+            # 更新任务状态为完成
+            update_bulk_check_task(
+                task_id,
+                status="completed",
+                results=results,
+                completed_keys=len(key_ids),
+                finished_at=datetime.now(timezone.utc).isoformat()
+            )
+            
+            logger.info(f"Completed bulk check task {task_id}")
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error executing bulk check task {task_id}: {e}")
+        update_bulk_check_task(
+            task_id,
+            status="failed",
+            error=str(e),
+            finished_at=datetime.now(timezone.utc).isoformat()
+        )
+
+
+async def execute_bulk_check_task_async(task_id: str):
+    """
+    异步执行批量检测任务
+    """
+    try:
+        # 获取任务信息
+        task_data = get_bulk_check_task_status(task_id)
+        if not task_data:
+            logger.error(f"Task {task_id} not found")
+            return
+            
+        # 更新任务状态为运行中
+        update_bulk_check_task(
+            task_id,
+            status="running",
+            started_at=datetime.now(timezone.utc).isoformat()
+        )
+        
+        key_ids = task_data["key_ids"]
+        results = []
+        
+        # 创建新的数据库会话
+        db = SessionLocal()
+        try:
+            logger.info(f"Starting bulk check task {task_id} for {len(key_ids)} keys")
+            
+            # 调用原有的检测函数
+            results = check_keys_validity(db, key_ids, task_id=task_id)
+            
+            # 更新任务状态为完成
+            update_bulk_check_task(
+                task_id,
+                status="completed",
+                results=results,
+                completed_keys=len(key_ids),
+                finished_at=datetime.now(timezone.utc).isoformat()
+            )
+            
+            logger.info(f"Completed bulk check task {task_id}")
+            
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"Error executing bulk check task {task_id}: {e}")
+        update_bulk_check_task(
+            task_id,
+            status="failed",
+            error=str(e),
+            finished_at=datetime.now(timezone.utc).isoformat()
+        )
 
 
 def _get_config_value_with_default(
@@ -250,7 +476,7 @@ def validate_error_api_keys_task():
     _execute_validation_task("error")
 
 
-def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
+def check_keys_validity(db: Session, key_ids: List[int], task_id: Optional[str] = None) -> List[Dict]:
     """批量检查密钥有效性"""
     logger.info(f"Starting bulk API Key validation for {len(key_ids)} keys...")
     results = []
@@ -277,6 +503,7 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
             return results
 
         # 执行并发验证
+        completed_count = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_count) as executor:
             future_to_key = {
                 executor.submit(_validate_single_key, key, validation_endpoint, timeout_seconds): key 
@@ -304,6 +531,11 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                         "message": message_str,
                     })
                     
+                    # 更新任务进度（如果提供了task_id）
+                    if task_id:
+                        completed_count += 1
+                        update_bulk_check_task(task_id, completed_keys=completed_count)
+                    
                 except Exception as exc:
                     logger.error(f"Error processing bulk validation result: {exc}")
                     original_key = future_to_key[future]
@@ -312,6 +544,11 @@ def check_keys_validity(db: Session, key_ids: List[int]) -> List[Dict]:
                         "status": "error",
                         "message": f"Processing error: {exc}",
                     })
+                    
+                    # 更新任务进度（如果提供了task_id）
+                    if task_id:
+                        completed_count += 1
+                        update_bulk_check_task(task_id, completed_keys=completed_count)
 
         logger.info(f"Bulk API Key validation finished. Processed {len(results)} keys with {concurrent_count} concurrent workers.")
 

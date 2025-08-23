@@ -1,7 +1,8 @@
 import re
-from typing import List, Annotated
+import logging
+from typing import List, Annotated, Dict
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 
 from ... import crud, schemas
 from ...core.security import user_dependency, db_dependency
@@ -23,6 +24,8 @@ from ...schemas.schemas import (
     KeySurvivalStatisticsResponse,
 )
 from ...tasks.key_validation import check_keys_validity
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api_keys", tags=["API Keys"])
 
@@ -184,16 +187,102 @@ async def bulk_add_api_keys(
 
 @router.post(
     "/bulk-check",
+    response_model=Dict,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def bulk_check_api_keys(
+    request_data: ApiKeyBulkCheckRequest,
+    background_tasks: BackgroundTasks,
+    db: db_dependency,
+    current_user: user_dependency,
+):
+    """
+    批量检测 API Key 的有效性（异步）。需要登录。
+    立即返回任务ID，客户端可通过任务ID查询进度和结果。
+    """
+    _ = current_user
+    
+    # 导入异步任务函数
+    from ...tasks.key_validation import create_bulk_check_task, execute_bulk_check_task_sync
+    
+    try:
+        # 创建任务
+        task_id = create_bulk_check_task(request_data.key_ids)
+        
+        # 使用 BackgroundTasks 启动后台任务
+        background_tasks.add_task(execute_bulk_check_task_sync, task_id)
+        
+        return {
+            "message": "批量检测任务已创建",
+            "task_id": task_id,
+            "total_keys": len(request_data.key_ids)
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to create bulk check task: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create bulk check task: {str(e)}"
+        )
+
+
+@router.get(
+    "/bulk-check/{task_id}/status",
+    response_model=Dict,
+    status_code=status.HTTP_200_OK,
+)
+async def get_bulk_check_task_status(
+    task_id: str,
+    db: db_dependency,
+    current_user: user_dependency,
+):
+    """
+    查询批量检测任务状态和结果。需要登录。
+    """
+    _ = current_user
+    
+    from ...tasks.key_validation import get_bulk_check_task_status as get_task_status
+    
+    try:
+        task_data = get_task_status(task_id)
+        
+        if not task_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Task not found"
+            )
+        
+        # 如果任务已完成或失败，返回结果（Redis会通过TTL自动清理）
+        if task_data.get("status") in ["completed", "failed"]:
+            logger.info(f"Returning completed task {task_id} results to client")
+            return task_data
+        
+        # 任务还在进行中，直接返回状态
+        return task_data
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get task status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get task status: {str(e)}"
+        )
+
+
+# 保留原有的同步接口作为备选
+@router.post(
+    "/bulk-check-sync",
     response_model=ApiKeyBulkCheckResponse,
     status_code=status.HTTP_200_OK,
 )
-async def bulk_check_api_keys(
+async def bulk_check_api_keys_sync(
     request_data: ApiKeyBulkCheckRequest,
     db: db_dependency,
     current_user: user_dependency,
 ):
     """
-    批量检测 API Key 的有效性。需要登录。
+    批量检测 API Key 的有效性（同步，兼容旧版本）。需要登录。
     """
     _ = current_user
 
