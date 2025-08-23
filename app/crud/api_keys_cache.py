@@ -34,9 +34,12 @@ def get_redis_client():
     return _redis_client
 
 
-def get_cached_active_api_key_ids() -> Optional[List[int]]:
+def get_cached_active_api_key_ids(record_stats: bool = True) -> Optional[List[int]]:
     """
     从Redis缓存获取活跃API key IDs列表
+    
+    Args:
+        record_stats: 是否记录缓存统计，默认为True
     
     Returns:
         Optional[List[int]]: 活跃API key IDs列表，如果缓存不存在或过期则返回None
@@ -48,7 +51,8 @@ def get_cached_active_api_key_ids() -> Optional[List[int]]:
         cached_data = redis_client.get(ACTIVE_KEYS_CACHE_KEY)
         if not cached_data:
             logger.debug("No cached active API keys found")
-            record_cache_access(hit=False)
+            if record_stats:
+                record_cache_access(hit=False)
             return None
         
         # 检查缓存是否过期
@@ -57,18 +61,21 @@ def get_cached_active_api_key_ids() -> Optional[List[int]]:
             last_update_time = float(last_update)
             if time.time() - last_update_time > ACTIVE_KEYS_CACHE_TTL:
                 logger.debug("Cached active API keys expired")
-                record_cache_access(hit=False)
+                if record_stats:
+                    record_cache_access(hit=False)
                 return None
         
         # 解析缓存数据
         key_ids = json.loads(cached_data)
         logger.debug(f"🎯 [CACHE] Retrieved {len(key_ids)} active API key IDs from cache")
-        record_cache_access(hit=True)
+        if record_stats:
+            record_cache_access(hit=True)
         return key_ids
         
     except Exception as e:
         logger.warning(f"⚠️ [CACHE] Failed to get cached active API keys: {e}")
-        record_cache_access(hit=False)
+        if record_stats:
+            record_cache_access(hit=False)
         return None
 
 
@@ -117,28 +124,42 @@ def record_cache_access(hit: bool):
     try:
         redis_client = get_redis_client()
         
-        # 获取当前统计数据
-        stats_data = redis_client.get(CACHE_STATS_KEY)
-        if stats_data:
-            stats = json.loads(stats_data)
-        else:
-            stats = {
-                "total_requests": 0,
-                "cache_hits": 0,
-                "cache_misses": 0,
-                "start_time": time.time(),
-                "last_reset_time": None
-            }
-        
-        # 更新统计
-        stats["total_requests"] += 1
-        if hit:
-            stats["cache_hits"] += 1
-        else:
-            stats["cache_misses"] += 1
-        
-        # 保存统计数据
-        redis_client.setex(CACHE_STATS_KEY, CACHE_STATS_TTL, json.dumps(stats))
+        # 使用 Redis pipeline 和原子操作来更新统计
+        with redis_client.pipeline() as pipe:
+            while True:
+                try:
+                    # 监视键以确保原子性
+                    pipe.watch(CACHE_STATS_KEY)
+                    
+                    # 获取当前统计数据
+                    stats_data = pipe.get(CACHE_STATS_KEY)
+                    if stats_data:
+                        stats = json.loads(stats_data)
+                    else:
+                        stats = {
+                            "total_requests": 0,
+                            "cache_hits": 0,
+                            "cache_misses": 0,
+                            "start_time": time.time(),
+                            "last_reset_time": None
+                        }
+                    
+                    # 更新统计
+                    stats["total_requests"] += 1
+                    if hit:
+                        stats["cache_hits"] += 1
+                    else:
+                        stats["cache_misses"] += 1
+                    
+                    # 开始事务
+                    pipe.multi()
+                    pipe.setex(CACHE_STATS_KEY, CACHE_STATS_TTL, json.dumps(stats))
+                    pipe.execute()
+                    break
+                    
+                except redis.WatchError:
+                    # 如果键被其他客户端修改，重试
+                    continue
         
     except Exception as e:
         logger.warning(f"⚠️ [CACHE] Failed to record cache access: {e}")

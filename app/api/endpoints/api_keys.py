@@ -464,8 +464,8 @@ async def get_cache_status(db: db_dependency, current_user: user_dependency):
         # 获取缓存统计数据
         cache_stats = get_cache_statistics()
         
-        # 获取当前缓存状态
-        cached_ids = crud.api_keys.get_cached_active_api_key_ids()
+        # 获取当前缓存状态（不记录统计以避免污染统计数据）
+        cached_ids = crud.api_keys.get_cached_active_api_key_ids(record_stats=False)
         actual_active_keys = crud.api_keys.get_active_api_keys(db)
         actual_count = len(actual_active_keys)
         
