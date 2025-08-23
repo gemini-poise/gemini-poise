@@ -12,6 +12,8 @@ from .schemas import (
     ApiKeyBulkAddRequest,
     ApiKeyBulkAddResponse,
     ApiKeyAddListRequest,
+    ApiKeyBulkUpdateRequest,
+    ApiKeyBulkUpdateResponse,
     ApiKeyBulkCheckRequest,
     ApiKeyCheckResult,
     ApiKeyBulkCheckResponse,

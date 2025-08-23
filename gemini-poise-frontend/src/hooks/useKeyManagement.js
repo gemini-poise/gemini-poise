@@ -7,6 +7,7 @@ import {
   updateApiKey,
   deleteApiKey,
   bulkDeleteApiKeys,
+  bulkUpdateApiKeys,
   bulkCheckApiKeys,
   getBulkCheckTaskStatus,
   checkApiKey,
@@ -367,22 +368,27 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
     }
   };
 
-  const handleBulkActivateKeys = async (validKeyValues) => {
-    if (validKeyValues.length === 0) {
+  const handleBulkActivateKeys = async (keyIds) => {
+    if (keyIds.length === 0) {
       message.warning(t('apiKeys.noValidKeysToActivate'));
       return;
     }
 
     const hideLoading = message.loading(t('apiKeys.activatingKeys'), 0);
     try {
-      const updatePromises = validKeyValues.map(async (keyValue) => {
-        const foundKey = keys.find(k => k.key_value === keyValue);
-        if (foundKey) {
-          await updateApiKey(foundKey.id, { ...foundKey, status: 'active' });
-        }
+      // 批量更新状态为active
+      const response = await bulkUpdateApiKeys({
+        key_ids: keyIds,
+        updates: { status: 'active' }
       });
-      await Promise.all(updatePromises);
-      message.success(t('apiKeys.keysActivatedSuccess', { count: validKeyValues.length }));
+
+      if (response.data.total_updated > 0) {
+        message.success(t('apiKeys.keysActivatedSuccess', { count: response.data.total_updated }));
+      }
+      if (response.data.failed_ids.length > 0) {
+        message.warning(t('apiKeys.someKeysFailed', { count: response.data.failed_ids.length }));
+      }
+
       setBulkCheckModalVisible(false);
       setSelectedRowKeys([]);
       await fetchKeys(pagination.current, pagination.pageSize, {

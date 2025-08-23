@@ -32,7 +32,7 @@
         "passwordsNotMatch": "两次输入的密码不一致"
     },
     "sidebar": {
-        "home" : "主页",
+        "home": "主页",
         "dashboard": "仪表板",
         "apiKeys": "API密钥",
         "configuration": "配置",
@@ -104,6 +104,14 @@
         "bulkDeleteSelected": "批量删除选中项",
         "bulkCheckKeys": "批量检查密钥",
         "checking": "检查中...",
+        "cancelCheck": "取消检测",
+        "checkingPending": "准备开始检测...",
+        "checkingInProgress": "检测进行中...",
+        "checkingFailed": "检测失败",
+        "checkingCancelled": "批量检测已取消",
+        "checkingDescription": "检测可能需要几分钟，请耐心等待",
+        "checkingPendingDescription": "正在启动批量检测任务",
+        "checkingFailedDescription": "请检查网络连接或稍后重试",
         "bulkKeyCheckResults": "批量密钥检查结果",
         "deleteInvalidErrorKeys": "删除无效/错误密钥",
         "close": "关闭",
@@ -152,14 +160,7 @@
         "keysActivatedSuccess": "成功激活了{{count}}个API密钥。",
         "activatingKeys": "正在激活密钥...",
         "failedToActivateKeys": "激活API密钥失败。",
-        "cancelCheck": "取消检测",
-        "checkingPending": "准备开始检测...",
-        "checkingInProgress": "检测进行中...",
-        "checkingFailed": "检测失败",
-        "checkingCancelled": "批量检测已取消",
-        "checkingDescription": "检测可能需要几分钟，请耐心等待",
-        "checkingPendingDescription": "正在启动批量检测任务",
-        "checkingFailedDescription": "请检查网络连接或稍后重试"
+        "someKeysFailed": "{{count}} 个密钥操作失败"
     },
     "config": {
         "title": "配置",
@@ -220,7 +221,7 @@
         "hitRate": "命中率",
         "totalRequests": "总请求数",
         "cacheHits": "缓存命中",
-        "cacheMisses": "缓存未命中", 
+        "cacheMisses": "缓存未命中",
         "runningHours": "运行时长",
         "hours": "小时",
         "refresh": "刷新",

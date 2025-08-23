@@ -73,6 +73,10 @@ export const bulkDeleteApiKeys = (data) => {
   return api.delete('/api_keys/bulk-delete', { data });
 };
 
+export const bulkUpdateApiKeys = (data) => {
+  return api.put('/api_keys/bulk-update', data);
+};
+
 export const bulkCheckApiKeys = (key_ids) => {
   return api.post('/api_keys/bulk-check', { key_ids });
 };

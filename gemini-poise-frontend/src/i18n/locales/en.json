@@ -104,6 +104,14 @@
         "bulkDeleteSelected": "Bulk Delete Selected",
         "bulkCheckKeys": "Bulk Check Keys",
         "checking": "Checking...",
+        "cancelCheck": "Cancel Check",
+        "checkingPending": "Preparing to start checking...",
+        "checkingInProgress": "Checking in progress...",
+        "checkingFailed": "Check failed",
+        "checkingCancelled": "Bulk check cancelled",
+        "checkingDescription": "Checking may take several minutes, please be patient",
+        "checkingPendingDescription": "Starting bulk check task",
+        "checkingFailedDescription": "Please check your network connection or try again later",
         "bulkKeyCheckResults": "Bulk Key Check Results",
         "deleteInvalidErrorKeys": "Delete Invalid/Error Keys",
         "close": "Close",
@@ -151,7 +159,8 @@
         "noValidKeysToActivate": "No valid API keys to activate.",
         "keysActivatedSuccess": "{{count}} API Key(s) activated successfully.",
         "activatingKeys": "Activating keys...",
-        "failedToActivateKeys": "Failed to activate API Key(s)."
+        "failedToActivateKeys": "Failed to activate API Key(s).",
+        "someKeysFailed": "{{count}} keys failed to process"
     },
     "config": {
         "title": "Configuration",

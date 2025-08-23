@@ -526,6 +526,7 @@ def check_keys_validity(db: Session, key_ids: List[int], task_id: Optional[str] 
                         status_str, message_str = "error", f"Validation failed: {status_info}"
                     
                     results.append({
+                        "key_id": key.id,
                         "key_value": key.key_value,
                         "status": status_str,
                         "message": message_str,
@@ -540,6 +541,7 @@ def check_keys_validity(db: Session, key_ids: List[int], task_id: Optional[str] 
                     logger.error(f"Error processing bulk validation result: {exc}")
                     original_key = future_to_key[future]
                     results.append({
+                        "key_id": original_key.id,
                         "key_value": original_key.key_value,
                         "status": "error",
                         "message": f"Processing error: {exc}",

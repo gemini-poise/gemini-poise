@@ -57,6 +57,17 @@ class ApiKeyUpdate(BaseModel):
     description: Optional[str] = None
 
 
+class ApiKeyBulkUpdateRequest(BaseModel):
+    key_ids: List[int]
+    updates: ApiKeyUpdate
+
+
+class ApiKeyBulkUpdateResponse(BaseModel):
+    total_requested: int
+    total_updated: int
+    failed_ids: List[int] = []
+
+
 class ApiKey(ApiKeyBase):
     id: int
     created_at: datetime
@@ -93,6 +104,7 @@ class ApiKeyBulkCheckRequest(BaseModel):
 
 # 定义 Schema 用于单个 Key 的检测结果
 class ApiKeyCheckResult(BaseModel):
+    key_id: Optional[int] = None
     key_value: str
     status: str  # 例如: "valid", "invalid", "error"
     message: Optional[str] = None

@@ -13,6 +13,8 @@ from ...schemas.schemas import (
     ApiKeyBulkAddRequest,
     ApiKeyAddListRequest,
     ApiKeyBulkAddResponse,
+    ApiKeyBulkUpdateRequest,
+    ApiKeyBulkUpdateResponse,
     ApiKeyPaginationParams,
     PaginatedApiKeyResponse,
     ApiCallStatistics,
@@ -101,6 +103,28 @@ async def get_api_key(
     if db_api_key is None:
         raise HTTPException(status_code=404, detail="API Key not found")
     return db_api_key
+
+
+@router.put("/bulk-update", response_model=ApiKeyBulkUpdateResponse, status_code=status.HTTP_200_OK)
+async def bulk_update_api_keys(
+    request_data: ApiKeyBulkUpdateRequest, 
+    db: db_dependency, 
+    current_user: user_dependency
+):
+    """
+    批量更新 API Key。需要登录。
+    """
+    _ = current_user
+
+    updated_count, failed_ids = crud.api_keys.bulk_update_api_keys(
+        db, request_data.key_ids, request_data.updates
+    )
+    
+    return ApiKeyBulkUpdateResponse(
+        total_requested=len(request_data.key_ids),
+        total_updated=updated_count,
+        failed_ids=failed_ids
+    )
 
 
 @router.put("/{api_key_id}", response_model=ApiKey)

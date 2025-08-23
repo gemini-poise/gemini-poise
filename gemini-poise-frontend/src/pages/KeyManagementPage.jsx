@@ -258,11 +258,8 @@ const KeyManagementPage = () => {
                             onClick={() => {
                                 const invalidKeyIds = bulkCheckResults
                                     .filter(result => result.status === 'invalid' || result.status === 'error')
-                                    .map(result => {
-                                        const foundKey = keys.find(k => k.key_value === result.key_value);
-                                        return foundKey ? foundKey.id : null;
-                                    })
-                                    .filter(id => id !== null);
+                                    .map(result => result.key_id)
+                                    .filter(id => id != null);
                                   handleBulkDelete(invalidKeyIds, t('apiKeys.confirmDeleteInvalidError'));
                               }}
                               disabled={bulkChecking || bulkCheckResults.filter(r => r.status === 'invalid' || r.status === 'error').length === 0}
@@ -273,10 +270,11 @@ const KeyManagementPage = () => {
                               key="activateValid"
                               type="primary"
                               onClick={() => {
-                                  const validKeyValues = bulkCheckResults
+                                  const validKeyIds = bulkCheckResults
                                       .filter(result => result.status === 'valid')
-                                      .map(result => result.key_value);
-                                  handleBulkActivateKeys(validKeyValues);
+                                      .map(result => result.key_id)
+                                      .filter(id => id != null);
+                                  handleBulkActivateKeys(validKeyIds);
                               }}
                               disabled={bulkChecking || bulkCheckResults.filter(r => r.status === 'valid').length === 0}
                           >

@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Tuple
 from sqlalchemy import select, insert
 from sqlalchemy.orm import Session
 
@@ -90,6 +90,67 @@ def delete_api_key(db: Session, api_key_id: int):
         logger.info(f"🗑️ [CACHE] API key {api_key_id} deleted, invalidating cache")
         invalidate_active_api_keys_cache()
     return db_api_key
+
+
+def bulk_update_api_keys(db: Session, key_ids: List[int], api_key_update: schemas.ApiKeyUpdate) -> Tuple[int, List[int]]:
+    """
+    批量更新API keys
+    
+    Args:
+        db: 数据库会话
+        key_ids: 要更新的API key ID列表
+        api_key_update: 更新数据
+    
+    Returns:
+        Tuple[int, List[int]]: (成功更新数量, 失败的ID列表)
+    """
+    from .api_keys_cache import invalidate_active_api_keys_cache
+    
+    update_data = api_key_update.model_dump(exclude_unset=True)
+    if not update_data:
+        return 0, key_ids  # 没有数据要更新
+    
+    updated_count = 0
+    failed_ids = []
+    status_changed = False
+    
+    try:
+        # 查询所有要更新的keys
+        db_api_keys = db.query(models.ApiKey).filter(models.ApiKey.id.in_(key_ids)).all()
+        existing_ids = {key.id for key in db_api_keys}
+        
+        # 记录不存在的IDs
+        failed_ids = [key_id for key_id in key_ids if key_id not in existing_ids]
+        
+        # 批量更新存在的keys
+        for db_api_key in db_api_keys:
+            # 检查状态是否会变化
+            if 'status' in update_data and update_data['status'] != db_api_key.status:
+                status_changed = True
+                
+            # 更新字段
+            for key, value in update_data.items():
+                setattr(db_api_key, key, value)
+            db.add(db_api_key)
+            updated_count += 1
+        
+        db.commit()
+        
+        # 如果有状态变化，使缓存失效
+        if status_changed:
+            logger.info(f"🔄 [CACHE] Bulk updated {updated_count} API keys with status change, invalidating cache")
+            invalidate_active_api_keys_cache()
+        
+        logger.info(f"Bulk updated {updated_count} API keys, {len(failed_ids)} failed")
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error in bulk_update_api_keys: {e}")
+        # 如果出错，所有的都算失败
+        failed_ids = key_ids
+        updated_count = 0
+    
+    return updated_count, failed_ids
 
 
 def bulk_delete_api_keys(db: Session, api_key_ids: List[int]) -> int:
