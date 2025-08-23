@@ -1,0 +1,80 @@
+name: Test Changelog Generation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/test-changelog.yml'
+
+jobs:
+  test-changelog:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for changelog generation
+    
+    - name: Test Changelog Generation
+      id: changelog
+      run: |
+        echo "::notice::Testing changelog generation logic"
+        
+        # Fetch all tags to ensure we have complete history
+        git fetch --tags || true
+        
+        # Simulate current tag (use latest tag or create a mock one)
+        CURRENT_TAG=$(git tag --sort=-version:refname | head -1 2>/dev/null || echo "v0.0.1")
+        echo "::notice::Simulating current tag: '$CURRENT_TAG'"
+        
+        # Get the previous tag (skip the current tag being built)
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1 2>/dev/null || echo "")
+        echo "::notice::Previous tag found: '$PREVIOUS_TAG'"
+
+        CHANGELOG_CONTENT=""
+
+        if [ -z "$PREVIOUS_TAG" ]; then
+          echo "::notice::No previous tag found, generating full changelog"
+          CHANGELOG_CONTENT=$(git log --oneline --pretty=format:"* %s (%h)" -10 || echo "* Initial release")
+        else
+          echo "::notice::Generating changelog from $PREVIOUS_TAG to HEAD"
+          CHANGELOG_CONTENT=$(git log --oneline --pretty=format:"* %s (%h)" "$PREVIOUS_TAG..HEAD" || echo "* No changes found")
+        fi
+
+        # Ensure we have some content
+        if [ -z "$CHANGELOG_CONTENT" ]; then
+          CHANGELOG_CONTENT="* No changes found"
+        fi
+
+        echo "::notice::Final changelog content:"
+        echo "$CHANGELOG_CONTENT"
+        
+        # Write to GitHub output with proper delimiter
+        DELIMITER="EOF_$(date +%s)"
+        echo "CHANGELOG<<$DELIMITER" >> "$GITHUB_OUTPUT"
+        echo "$CHANGELOG_CONTENT" >> "$GITHUB_OUTPUT"
+        echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+        
+        # Also output directly for immediate verification
+        echo "## Generated Changelog"
+        echo "$CHANGELOG_CONTENT"
+      shell: bash
+    
+    - name: Display Changelog Output
+      run: |
+        echo "## Changelog from previous step:"
+        echo "${{ steps.changelog.outputs.CHANGELOG }}"
+        
+        echo ""
+        echo "## Formatted as it would appear in release:"
+        echo "### Release Test"
+        echo ""
+        echo "#### Changelog"
+        echo "${{ steps.changelog.outputs.CHANGELOG }}"
+        echo ""
+        echo "---"
+        echo ""
+        echo "See the assets below for the builds."

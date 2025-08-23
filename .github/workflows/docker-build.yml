@@ -68,27 +68,38 @@ jobs:
     - name: Generate Changelog
       id: changelog
       run: |
-        PREVIOUS_TAG=$(git tag --sort=-version:refname | head -2 | tail -1 2>/dev/null || echo "")
+        # Fetch all tags to ensure we have complete history
+        git fetch --tags || true
+        
+        # Get the previous tag (skip the current tag being built)
+        CURRENT_TAG="${GITHUB_REF#refs/tags/}"
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1 2>/dev/null || echo "")
+        echo "::debug::Current tag: '$CURRENT_TAG'"
         echo "::debug::Previous tag found: '$PREVIOUS_TAG'"
 
         CHANGELOG_CONTENT=""
-        GIT_LOG_COMMAND=""
 
         if [ -z "$PREVIOUS_TAG" ]; then
-          GIT_LOG_COMMAND='git log --pretty=format:"* %s (%h)"'
-          CHANGELOG_CONTENT=$(git log --pretty=format:"* %s (%h)")
+          echo "::debug::No previous tag found, generating full changelog"
+          CHANGELOG_CONTENT=$(git log --oneline --pretty=format:"* %s (%h)" || echo "* Initial release")
         else
-          GIT_LOG_COMMAND="git log --pretty=format:\"* %s (%h)\" $PREVIOUS_TAG..HEAD"
-          CHANGELOG_CONTENT=$(git log --pretty=format:"* %s (%h)" $PREVIOUS_TAG..HEAD)
+          echo "::debug::Generating changelog from $PREVIOUS_TAG to HEAD"
+          CHANGELOG_CONTENT=$(git log --oneline --pretty=format:"* %s (%h)" "$PREVIOUS_TAG..HEAD" || echo "* No changes found")
         fi
-        echo "::debug::Executing command: $GIT_LOG_COMMAND"
-        echo "::debug::Raw git log output:"
+
+        # Ensure we have some content
+        if [ -z "$CHANGELOG_CONTENT" ]; then
+          CHANGELOG_CONTENT="* No changes found"
+        fi
+
+        echo "::debug::Final changelog content:"
         echo "$CHANGELOG_CONTENT"
-        echo "::debug::End of raw git log output."
-        DELIMITER=$(openssl rand -hex 8)
-        echo "::debug::Writing to GITHUB_OUTPUT with delimiter $DELIMITER"
-        printf "%s<<%s\n%s\n%s\n" "CHANGELOG" "$DELIMITER" "$CHANGELOG_CONTENT" "$DELIMITER" >> "$GITHUB_OUTPUT"
-        echo "::debug::Finished writing to GITHUB_OUTPUT."
+        
+        # Write to GitHub output with proper delimiter
+        DELIMITER="EOF_$(date +%s)"
+        echo "CHANGELOG<<$DELIMITER" >> "$GITHUB_OUTPUT"
+        echo "$CHANGELOG_CONTENT" >> "$GITHUB_OUTPUT"
+        echo "$DELIMITER" >> "$GITHUB_OUTPUT"
       shell: bash
 
     - name: Create GitHub Release
