@@ -30,6 +30,7 @@ Gemini Poise is a full-stack application designed to help you easily proxy and m
 - **Configuration Management**: Flexible settings for target API URLs and other system parameters.
 - **API Request Proxy and Forwarding**: Seamlessly proxies and forwards Gemini API requests.
 - **API Key Automatic Rotation**: Automatically manages and rotates API Keys to improve API availability.
+- **Token Bucket Algorithm**: Advanced rate limiting with intelligent load balancing, sampling optimization, and automatic fallback.
 - **Request Logging and Monitoring**: Logs and monitors API requests for troubleshooting and performance analysis.
 
 ## Project Structure
@@ -308,7 +309,41 @@ Please ensure you have Docker and Docker Compose installed on your system.
 - [x] Logic for randomly fetching available API Keys
 - [x] API request forwarding logic
 - [x] Logic for updating Key usage status
-- [x] Token bucket
+- [x] Token bucket algorithm implementation
+
+## Token Bucket Algorithm
+
+Gemini Poise implements an advanced token bucket algorithm for intelligent API key selection and rate limiting:
+
+### Core Architecture
+- **TokenBucket Data Structure**: Stores capacity, current tokens, refill rate, and last refill timestamp
+- **TokenBucketManager**: Redis-based token bucket manager for distributed environments
+- **OptimizedTokenBucketManager**: Enhanced version with memory caching and Lua script support
+
+### Key Features
+- **Redis Storage**: Persistent token bucket state with distributed support
+- **Lua Script Optimization**: Atomic token consumption operations to reduce race conditions
+- **Memory Caching**: 5-second TTL local cache to reduce Redis queries
+- **Batch Operations**: Supports batch token checking using Redis pipeline for optimization
+- **Smart Sampling**: Progressive sampling (200→1000) to avoid full-scale scanning
+
+### Algorithm Strategy
+- **Weighted Random Selection**: Weight distribution based on remaining token count
+- **Auto Refill**: Automatic token replenishment based on time and configured refill rate
+- **Fallback Mechanism**: Automatic fallback to random selection when token bucket fails
+- **Dynamic TTL**: Different expiration times based on usage frequency
+- **LRU Eviction**: Supports maximum bucket count limits and LRU strategy
+
+### Configuration Management
+- **Priority Configuration**: Different capacity and refill rates for high/medium/low priority
+- **Database Configuration**: Configuration persistence to database with dynamic adjustment support
+- **Parameter Validation**: Complete configuration validation mechanism
+
+### Performance Optimization
+- **Layered Caching**: API key cache + token information cache
+- **SCAN vs KEYS**: Uses SCAN instead of KEYS to avoid Redis blocking
+- **Pipeline Batching**: Reduces network round trips
+- **Lazy Cleanup**: On-demand cleanup of expired data
 
 ### Phase 4: Frontend Foundation
 - [x] Frontend project initialization and dependency installation
