@@ -47,9 +47,9 @@ jobs:
         push: true
         tags: |
           alterem/gemini-poise:${{ steps.extract_tag.outputs.TAG }}
-          alterem/gemini-poise:latest
           ghcr.io/${{ github.repository }}/gemini-poise:${{ steps.extract_tag.outputs.TAG }}
-          ghcr.io/${{ github.repository }}/gemini-poise:latest
+          ${{ github.ref_name == 'main' && 'alterem/gemini-poise:latest' || '' }}
+          ${{ github.ref_name == 'main' && format('ghcr.io/{0}/gemini-poise:latest', github.repository) || '' }}
         platforms: linux/amd64,linux/arm64
 
     - name: Build and push frontend Docker image
@@ -60,9 +60,9 @@ jobs:
         push: true
         tags: |
           alterem/gemini-poise-frontend:${{ steps.extract_tag.outputs.TAG }}
-          alterem/gemini-poise-frontend:latest
           ghcr.io/${{ github.repository }}/gemini-poise-frontend:${{ steps.extract_tag.outputs.TAG }}
-          ghcr.io/${{ github.repository }}/gemini-poise-frontend:latest
+          ${{ github.ref_name == 'main' && 'alterem/gemini-poise-frontend:latest' || '' }}
+          ${{ github.ref_name == 'main' && format('ghcr.io/{0}/gemini-poise-frontend:latest', github.repository) || '' }}
         platforms: linux/amd64,linux/arm64
 
     - name: Generate Changelog
