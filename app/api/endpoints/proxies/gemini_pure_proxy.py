@@ -94,11 +94,11 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
             status_code=401, detail="Invalid or missing internal API key."
         )
 
-    target_api_key_obj = crud.api_keys.get_active_api_key_with_token_bucket(db)
-    if not target_api_key_obj:
-        raise HTTPException(
-            status_code=503, detail="No active target API keys available."
-        )
+    # target_api_key_obj = crud.api_keys.get_active_api_key_with_token_bucket(db)
+    # if not target_api_key_obj:
+    #     raise HTTPException(
+    #         status_code=503, detail="No active target API keys available."
+    #     )
 
     query_params_to_send = dict(request.query_params)
 
@@ -110,10 +110,10 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
         db=db,
         full_target_url=full_target_url,
         stream=stream,
-        skip_token_validation=True,
+        # skip_token_validation=True,
         params=query_params_to_send,
         api_key_header_name="x-goog-api-key",
-        selected_key_obj=target_api_key_obj,
+        # selected_key_obj=target_api_key_obj,
     )
 
     return response

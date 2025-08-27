@@ -179,38 +179,41 @@ async def base_proxy_request(
         request: Request,
         db: Session,
         full_target_url: str,
-        api_key_fetch_func=None,
         api_key_header_name: str = "x-goog-api-key",
         stream: bool = False,
         params: dict = None,
-        skip_token_validation: bool = False,
-        selected_key_obj=None,
+        # skip_token_validation: bool = False,
         headers: Optional[Dict] = None
 ):
     """
     """
-    if not skip_token_validation:
-        validate_api_token(request, db)
+    # if not skip_token_validation:
+    #     validate_api_token(request, db)
 
     key_value = None
     selected_key = None
-    if api_key_header_name:
-        if selected_key_obj:
-            selected_key = selected_key_obj
-            key_value = selected_key.key_value
-        elif api_key_fetch_func:
-            selected_key = api_key_fetch_func(db)
-            if selected_key is None:
-                raise HTTPException(status_code=503, detail="No active API keys available.")
-            key_value = selected_key.key_value
-        else:
-            raise ValueError(
-                "Either api_key_fetch_func, target_api_key, or selected_key_obj must be provided if api_key_header_name is not empty.")
+    # if api_key_header_name:
+        # if selected_key_obj:
+        #     selected_key = selected_key_obj
+        #     key_value = selected_key.key_value
+        # elif api_key_fetch_func:
+        #     selected_key = api_key_fetch_func(db)
+        #     if selected_key is None:
+        #         raise HTTPException(status_code=503, detail="No active API keys available.")
+        #     key_value = selected_key.key_value
+        # else:
+        #     raise ValueError(
+        #         "Either api_key_fetch_func, target_api_key, or selected_key_obj must be provided if api_key_header_name is not empty.")
 
-        if key_value is None:
-            raise HTTPException(status_code=503, detail="API key not available.")
+        # if key_value is None:
+        #     raise HTTPException(status_code=503, detail="API key not available.")
 
-    max_failed_count = get_max_failed_count(db) if selected_key else 3
+    db_chat_retry_num = crud.config.get_config_by_key(db, "chat_retry_num")
+    if db_chat_retry_num is None:
+        config_chat_retry_num=5
+    else:
+        # value转数字
+        config_chat_retry_num=db_chat_retry_num.value
 
     if headers is None:
         final_headers = dict(request.headers)
@@ -234,59 +237,84 @@ async def base_proxy_request(
 
     try:
         query_params_to_send = params if params is not None else dict(request.query_params)
-        if stream:
-            proxy_response_context = httpx_client.stream(
-                method=request.method,
-                url=full_target_url,
-                headers=final_headers,
-                params=query_params_to_send,
-                content=body_to_send
-            )
-            proxy_response = await proxy_response_context.__aenter__()
-            if api_key_header_name and selected_key:
-                try:
-                    initial_status = proxy_response.status_code
-                    is_successful = initial_status >= 200 and initial_status < 300
+
+        _retry_num = 1
+        while _retry_num <= config_chat_retry_num:
+            selected_key_obj = crud.api_keys.get_active_api_key_with_token_bucket(db)
+            if not selected_key_obj:
+                raise HTTPException(
+                    status_code=503, detail="No active target API keys available."
+                )
+
+            selected_key = selected_key_obj
+            key_value = selected_key.key_value
+
+            max_failed_count = get_max_failed_count(db) if selected_key else 3
+
+            if api_key_header_name and key_value:
+                final_headers[
+                    api_key_header_name] = key_value if api_key_header_name == "x-goog-api-key" else f"Bearer {key_value}"
+
+            if stream:
+                proxy_response_context = httpx_client.stream(
+                    method=request.method,
+                    url=full_target_url,
+                    headers=final_headers,
+                    params=query_params_to_send,
+                    content=body_to_send
+                )
+                proxy_response = await proxy_response_context.__aenter__()
+                if api_key_header_name and selected_key:
+                    try:
+                        initial_status = proxy_response.status_code
+                        is_successful = initial_status >= 200 and initial_status < 300
+                        update_key_status_based_on_response(db, selected_key, is_successful, max_failed_count)
+                        record_api_call_log(db, selected_key.id)
+                        if not is_successful:
+                            logger.info(f"第{_retry_num}次调用失败,状态码{initial_status}")
+                            _retry_num+=1
+                            continue
+                    except Exception:
+                        logger.warning("Could not get initial status code for streaming response to update key status.")
+                        pass
+
+                response_headers = dict(proxy_response.headers)
+                response_headers.pop("content-encoding", None)
+                response_headers.pop("content-length", None)
+
+                return StreamingResponse(
+                    content=proxy_response.aiter_bytes(),
+                    status_code=proxy_response.status_code,
+                    headers=response_headers,
+                    background=lambda: proxy_response_context.__aexit__(None, None, None)
+                )
+            else:
+                query_params_to_send = params if params is not None else dict(request.query_params)
+                proxy_response = await httpx_client.request(
+                    method=request.method,
+                    url=full_target_url,
+                    headers=final_headers,
+                    params=query_params_to_send,
+                    content=body_to_send
+                )
+
+                if api_key_header_name and selected_key:
+                    is_successful = proxy_response.status_code >= 200 and proxy_response.status_code < 300
                     update_key_status_based_on_response(db, selected_key, is_successful, max_failed_count)
                     record_api_call_log(db, selected_key.id)
-                except Exception:
-                    logger.warning("Could not get initial status code for streaming response to update key status.")
-                    pass
+                    if not is_successful:
+                        logger.info(f"第{_retry_num}次调用失败,状态码{proxy_response.status_code}")
+                        _retry_num += 1
+                        continue
+                response_headers = dict(proxy_response.headers)
+                response_headers.pop("content-encoding", None)
+                response_headers.pop("content-length", None)
 
-            response_headers = dict(proxy_response.headers)
-            response_headers.pop("content-encoding", None)
-            response_headers.pop("content-length", None)
-
-            return StreamingResponse(
-                content=proxy_response.aiter_bytes(),
-                status_code=proxy_response.status_code,
-                headers=response_headers,
-                background=lambda: proxy_response_context.__aexit__(None, None, None)
-            )
-        else:
-            query_params_to_send = params if params is not None else dict(request.query_params)
-            proxy_response = await httpx_client.request(
-                method=request.method,
-                url=full_target_url,
-                headers=final_headers,
-                params=query_params_to_send,
-                content=body_to_send
-            )
-
-            if api_key_header_name and selected_key:
-                is_successful = proxy_response.status_code >= 200 and proxy_response.status_code < 300
-                update_key_status_based_on_response(db, selected_key, is_successful, max_failed_count)
-                record_api_call_log(db, selected_key.id)
-
-            response_headers = dict(proxy_response.headers)
-            response_headers.pop("content-encoding", None)
-            response_headers.pop("content-length", None)
-
-            return Response(
-                content=proxy_response.content,
-                status_code=proxy_response.status_code,
-                headers=response_headers
-            )
+                return Response(
+                    content=proxy_response.content,
+                    status_code=proxy_response.status_code,
+                    headers=response_headers
+                )
 
 
     except httpx.RequestError as exc:
