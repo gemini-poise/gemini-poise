@@ -73,7 +73,11 @@
         "keyCount": "密钥数量",
         "apiCallsPerMinute": "按密钥分组的每分钟API调用",
         "time": "时间（分钟）",
-        "callCount": "调用次数"
+        "callCount": "调用次数",
+        "last12Hours": "最近12小时",
+        "last1Day": "最近1天",
+        "last3Days": "最近3天",
+        "last7Days": "最近7天"
     },
     "apiKeys": {
         "title": "API密钥管理",

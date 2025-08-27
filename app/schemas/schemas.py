@@ -250,5 +250,10 @@ class KeySurvivalStatisticsEntry(BaseModel):
         from_attributes = True
 
 
+class KeySurvivalStatisticsQueryParams(BaseModel):
+    start_time: Optional[datetime] = Field(None, description="Start time for filtering statistics (UTC)")
+    end_time: Optional[datetime] = Field(None, description="End time for filtering statistics (UTC)")
+
+
 class KeySurvivalStatisticsResponse(BaseModel):
     statistics: List[KeySurvivalStatisticsEntry]

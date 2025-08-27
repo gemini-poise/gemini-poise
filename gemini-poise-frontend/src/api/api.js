@@ -45,8 +45,15 @@ export const getApiCallLogsByMinute = (hoursAgo = 24) => {
   return api.get(`/api_keys/statistics/calls_by_minute?hours_ago=${hoursAgo}`);
 };
 
-export const getKeySurvivalStatistics = () => {
-  return api.get('/api_keys/statistics/survival');
+export const getKeySurvivalStatistics = (startTime, endTime) => {
+  const params = {};
+  if (startTime) {
+    params.start_time = startTime.toISOString();
+  }
+  if (endTime) {
+    params.end_time = endTime.toISOString();
+  }
+  return api.get('/api_keys/statistics/survival', { params });
 };
 
 export const getApiKeysPaginated = (params) => {

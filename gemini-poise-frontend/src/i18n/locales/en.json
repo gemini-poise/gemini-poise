@@ -73,7 +73,11 @@
         "keyCount": "Key Count",
         "apiCallsPerMinute": "API Calls Per Minute by Key",
         "time": "Time (Minute)",
-        "callCount": "Call Count"
+        "callCount": "Call Count",
+        "last12Hours": "Last 12 Hours",
+        "last1Day": "Last 1 Day",
+        "last3Days": "Last 3 Days",
+        "last7Days": "Last 7 Days"
     },
     "apiKeys": {
         "title": "API Key Management",

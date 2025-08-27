@@ -91,7 +91,7 @@ export const useApiCallLogsByMinute = (hoursAgo = 24) => {
   return { apiCallLogs, loadingApiCallLogs, errorApiCallLogs };
 };
 
-export const useKeySurvivalStatistics = () => {
+export const useKeySurvivalStatistics = (startTime, endTime) => {
   const [keySurvivalStatistics, setKeySurvivalStatistics] = useState([]);
   const [loadingKeySurvival, setLoadingKeySurvival] = useState(true);
   const [errorKeySurvival, setErrorKeySurvival] = useState(null);
@@ -100,7 +100,7 @@ export const useKeySurvivalStatistics = () => {
     const fetchKeySurvivalStatistics = async () => {
       try {
         setLoadingKeySurvival(true);
-        const response = await getKeySurvivalStatistics();
+        const response = await getKeySurvivalStatistics(startTime, endTime);
         setKeySurvivalStatistics(response.data.statistics);
         setErrorKeySurvival(null);
       } catch (err) {
@@ -112,7 +112,7 @@ export const useKeySurvivalStatistics = () => {
     };
 
     fetchKeySurvivalStatistics();
-  }, []);
+  }, [startTime, endTime]);
 
   return { keySurvivalStatistics, loadingKeySurvival, errorKeySurvival };
 };
