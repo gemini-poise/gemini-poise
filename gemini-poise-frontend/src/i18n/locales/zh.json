@@ -68,7 +68,7 @@
         "oneHourCalls": "1小时调用",
         "twentyFourHourCalls": "24小时调用",
         "apiCallTrends": "API调用趋势（最近24小时）",
-        "keySurvivalTrends": "密钥存活趋势（最近60次记录）",
+        "keySurvivalTrends": "密钥存活趋势",
         "keySurvivalOverTime": "密钥存活状态趋势",
         "keyCount": "密钥数量",
         "apiCallsPerMinute": "按密钥分组的每分钟API调用",
