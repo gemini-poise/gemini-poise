@@ -1,23 +1,23 @@
-import { Form, Input, Button, Card, Typography, Checkbox, Layout, Space } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { useTranslation } from 'react-i18next';
+import {Button, Card, Checkbox, Form, Input, Layout, Space, Typography} from 'antd';
+import {LockOutlined, UserOutlined} from '@ant-design/icons';
+import {useTranslation} from 'react-i18next';
 import LanguageSwitcher from '../components/LanguageSwitcher';
-import { useLogin } from '../hooks/useLogin';
+import {useLogin} from '../hooks/useLogin';
 
-const { Title } = Typography;
-const { Content } = Layout;
+const {Title} = Typography;
+const {Content} = Layout;
 
 const LoginPage = () => {
   const [form] = Form.useForm();
-  const { t } = useTranslation();
-  const { loading, handleLogin, rememberedUsername } = useLogin(form, t);
+  const {t} = useTranslation();
+  const {loading, handleLogin, rememberedUsername} = useLogin(form, t);
 
   return (
     <Layout className="h-screen flex flex-col justify-center items-center bg-gray-100 login-background">
-      <div style={{ position: 'absolute', top: '20px', right: '20px', zIndex: 1000 }}>
+      <div style={{position: 'absolute', top: '20px', right: '20px', zIndex: 1000}}>
         <Space>
           <Typography.Text type="secondary">{t('language.switch')}:</Typography.Text>
-          <LanguageSwitcher />
+          <LanguageSwitcher/>
         </Space>
       </div>
       <Content className="w-full max-w-md p-4 flex flex-col justify-center">
@@ -46,7 +46,7 @@ const LoginPage = () => {
               }]}
             >
               <Input
-                prefix={<UserOutlined className="site-form-item-icon" />}
+                prefix={<UserOutlined className="site-form-item-icon"/>}
                 placeholder={t('login.username')}
                 autoComplete="username"
               />
@@ -61,7 +61,7 @@ const LoginPage = () => {
               }]}
             >
               <Input.Password
-                prefix={<LockOutlined className="site-form-item-icon" />}
+                prefix={<LockOutlined className="site-form-item-icon"/>}
                 placeholder={t('login.password')}
                 autoComplete="current-password"
               />

@@ -1,0 +1,4 @@
+[*.{js,jsx,ts,tsx}]
+
+# IntelliJ IDEA specific setting for spaces within ES6 import/export braces
+ij_typescript_spaces_within_imports = true
