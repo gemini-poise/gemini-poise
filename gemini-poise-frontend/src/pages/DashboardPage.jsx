@@ -161,12 +161,24 @@ const DashboardPage = () => {
                                 <DatePicker.RangePicker
                                     showTime
                                     value={[dayjs(selectedStartTime), dayjs(selectedEndTime)]}
-                                    ranges={{
-                                        [t('dashboard.last12Hours')]: [dayjs().subtract(12, 'hour'), dayjs()],
-                                        [t('dashboard.last1Day')]: [dayjs().subtract(1, 'day'), dayjs()],
-                                        [t('dashboard.last3Days')]: [dayjs().subtract(3, 'day'), dayjs()],
-                                        [t('dashboard.last7Days')]: [dayjs().subtract(7, 'day'), dayjs()],
-                                    }}
+                                    presets={[
+                                        {
+                                            label: t('dashboard.last12Hours'),
+                                            value: [dayjs().subtract(12, 'hour'), dayjs()],
+                                        },
+                                        {
+                                            label: t('dashboard.last1Day'),
+                                            value: [dayjs().subtract(1, 'day'), dayjs()],
+                                        },
+                                        {
+                                            label: t('dashboard.last3Days'),
+                                            value: [dayjs().subtract(3, 'day'), dayjs()],
+                                        },
+                                        {
+                                            label: t('dashboard.last7Days'),
+                                            value: [dayjs().subtract(7, 'day'), dayjs()],
+                                        },
+                                    ]}
                                     onChange={(dates) => {
                                         if (dates && dates.length === 2) {
                                             setSelectedStartTime(dates[0].toDate());
