@@ -160,8 +160,17 @@ async def _execute_proxy_request_with_retry(
   # 总尝试次数 = 1次原始请求 + max_retries次重试
   total_attempts = max_retries + 1
 
+  # Log retry configuration at start
+  logger.info(f"Starting proxy request execution, max retries: {max_retries}, total attempts: {total_attempts}")
+
   for attempt in range(total_attempts):
     try:
+      # Determine if this is a retry
+      if attempt == 0:
+        logger.info(f"Executing initial request (attempt {attempt + 1}/{total_attempts})")
+      else:
+        logger.info(f"Executing retry request (retry {attempt}/{max_retries}, total attempt {attempt + 1}/{total_attempts})")
+
       logger.debug(f"Proxy request attempt {attempt + 1}/{total_attempts}")
 
       # 每次尝试都获取新的API密钥
@@ -181,31 +190,39 @@ async def _execute_proxy_request_with_retry(
       )
 
       # 请求成功，返回响应
-      if attempt > 0:
-        logger.info(f"Proxy request succeeded after {attempt + 1} attempts (with {attempt} retries)")
+      if attempt == 0:
+        logger.info(f"✅ Proxy request succeeded (initial request successful, no retries needed)")
+      else:
+        logger.info(f"✅ Proxy request retry succeeded (succeeded after {attempt} retries, total {attempt + 1} attempts)")
 
       return response
 
     except Exception as e:
       last_exception = e
-      logger.warning(f"Proxy request attempt {attempt + 1} failed: {str(e)}")
+
+      # Determine if this is a retry failure
+      if attempt == 0:
+        logger.warning(f"❌ Initial request failed (attempt {attempt + 1}/{total_attempts}): {str(e)}")
+      else:
+        logger.warning(f"❌ Retry request failed (retry {attempt}/{max_retries}, total attempt {attempt + 1}/{total_attempts}): {str(e)}")
 
       # 判断是否可以重试
       if not _is_retryable_error(e):
-        logger.info(f"Error is not retryable: {type(e).__name__}")
+        logger.info(f"🚫 Error is not retryable, throwing exception directly: {type(e).__name__}")
         raise e
 
       # 如果这是最后一次尝试，不再重试
       if attempt == total_attempts - 1:
-        logger.error(f"All {total_attempts} attempts failed (original + {max_retries} retries)")
+        logger.error(f"💥 All attempts failed (initial request + {max_retries} retries = {total_attempts} total attempts all failed)")
         break
 
       # 计算延迟时间并等待
       delay = await _calculate_retry_delay(attempt)
-      logger.info(f"Retrying in {delay:.2f} seconds with new API key...")
+      logger.info(f"⏳ Preparing retry {attempt + 1}/{max_retries}, will retry with new API key after {delay:.2f} seconds...")
       await asyncio.sleep(delay)
 
   # 所有重试都失败，抛出最后一个异常
+  logger.error(f"🔥 Retry mechanism completed, all {total_attempts} attempts failed, throwing last exception")
   if last_exception:
     raise last_exception
 
