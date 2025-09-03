@@ -68,12 +68,16 @@
         "oneHourCalls": "1 Hour Calls",
         "twentyFourHourCalls": "24 Hour Calls",
         "apiCallTrends": "API Call Trends (Last 24 Hours)",
-        "keySurvivalTrends": "Key Survival Trends (Last 60 Records)",
+        "keySurvivalTrends": "Key Survival Trends",
         "keySurvivalOverTime": "Key Survival Status Over Time",
         "keyCount": "Key Count",
         "apiCallsPerMinute": "API Calls Per Minute by Key",
         "time": "Time (Minute)",
-        "callCount": "Call Count"
+        "callCount": "Call Count",
+        "last12Hours": "Last 12 Hours",
+        "last1Day": "Last 1 Day",
+        "last3Days": "Last 3 Days",
+        "last7Days": "Last 7 Days"
     },
     "apiKeys": {
         "title": "API Key Management",

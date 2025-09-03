@@ -23,7 +23,7 @@ from ...schemas.schemas import (
     ApiKeyCheckResult,
     ApiCallLogResponse,
     KeyStatistics,
-    KeySurvivalStatisticsResponse,
+    KeySurvivalStatisticsResponse, KeySurvivalStatisticsQueryParams,
 )
 from ...tasks.key_validation import check_keys_validity
 
@@ -403,12 +403,21 @@ async def add_api_keys_from_list(
 
 
 @router.get("/statistics/survival", response_model=KeySurvivalStatisticsResponse)
-async def get_key_survival_statistics(db: db_dependency, current_user: user_dependency):
+async def get_key_survival_statistics(
+    db: db_dependency,
+    current_user: user_dependency,
+    query_params: Annotated[KeySurvivalStatisticsQueryParams, Depends()]
+):
     """
-    获取最近60次密钥存活统计数据。需要登录。
+    获取密钥存活统计数据，支持时间范围过滤。需要登录。
     """
     _ = current_user
-    statistics = crud.api_keys.get_key_survival_statistics(db, limit=60)
+    statistics = crud.api_keys.get_key_survival_statistics(
+        db,
+        limit=60, # Default limit, can be made configurable if needed
+        start_time=query_params.start_time,
+        end_time=query_params.end_time
+    )
     return KeySurvivalStatisticsResponse(statistics=statistics)
 
 
