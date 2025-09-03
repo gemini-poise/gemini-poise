@@ -98,12 +98,12 @@ def _extract_stream_parameter(body: bytes) -> Tuple[bool, Optional[Dict[str, Any
 def _is_retryable_error(exception: Exception) -> bool:
   """判断异常是否可以重试"""
   if isinstance(exception, HTTPException):
-    # 5xx服务器错误和429请求过多可以重试
-    return exception.status_code >= 500 or exception.status_code == 429
+    # 4xx和5xx错误都可以重试（除了400参数错误，因为换key无法解决参数问题）
+    return exception.status_code >= 400 and exception.status_code != 400
 
   if isinstance(exception, ProxyError):
-    # 基于ProxyError的状态码判断
-    return exception.status_code >= 500 or exception.status_code == 429
+    # 基于ProxyError的状态码判断，4xx和5xx都可以重试（除了400）
+    return exception.status_code >= 400 and exception.status_code != 400
 
   # 网络相关错误通常可以重试
   error_types = (
@@ -153,10 +153,9 @@ async def _execute_proxy_request_with_retry(
   full_target_url: str,
   stream: bool,
   query_params_to_send: Dict[str, Any],
-  target_api_key_obj: Any,
   max_retries: int = 3
 ) -> Any:
-  """执行带重试的代理请求"""
+  """执行带重试的代理请求，每次重试使用新的API密钥"""
   last_exception = None
   # 总尝试次数 = 1次原始请求 + max_retries次重试
   total_attempts = max_retries + 1
@@ -164,6 +163,11 @@ async def _execute_proxy_request_with_retry(
   for attempt in range(total_attempts):
     try:
       logger.debug(f"Proxy request attempt {attempt + 1}/{total_attempts}")
+
+      # 每次尝试都获取新的API密钥
+      current_api_key_obj = KeyManager.get_active_api_key(db)
+      if current_api_key_obj:
+        logger.debug(f"Using API key for attempt {attempt + 1}: {current_api_key_obj.key_name if hasattr(current_api_key_obj, 'key_name') else 'unnamed'}")
 
       response = await base_proxy_request(
         request=request,
@@ -173,7 +177,7 @@ async def _execute_proxy_request_with_retry(
         skip_token_validation=True,
         params=query_params_to_send,
         api_key_header_name="x-goog-api-key",
-        selected_key_obj=target_api_key_obj,
+        selected_key_obj=current_api_key_obj,
       )
 
       # 请求成功，返回响应
@@ -198,7 +202,7 @@ async def _execute_proxy_request_with_retry(
 
       # 计算延迟时间并等待
       delay = await _calculate_retry_delay(attempt)
-      logger.info(f"Retrying in {delay:.2f} seconds...")
+      logger.info(f"Retrying in {delay:.2f} seconds with new API key...")
       await asyncio.sleep(delay)
 
   # 所有重试都失败，抛出最后一个异常
@@ -264,21 +268,18 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
         detail="Invalid or missing internal API key."
       )
 
-    # 6. 获取目标API密钥使用KeyManager
-    target_api_key_obj = KeyManager.get_active_api_key(db)
-
-    # 7. 准备查询参数（移除内部key）
+    # 6. 准备查询参数（移除内部key）
     query_params_to_send = dict(request.query_params)
     query_params_to_send.pop("key", None)
 
-    # 8. 调用带重试的基础代理，使用缓存的重试次数
+    # 7. 调用带重试的基础代理，使用缓存的重试次数
+    # API密钥将在重试函数内部动态获取
     response = await _execute_proxy_request_with_retry(
       request=request,
       db=db,
       full_target_url=full_target_url,
       stream=stream,
       query_params_to_send=query_params_to_send,
-      target_api_key_obj=target_api_key_obj,
       max_retries=retry_count
     )
 
