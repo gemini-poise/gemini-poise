@@ -25,9 +25,9 @@ _cache_timestamp = 0
 CACHE_TTL = 300  # 5分钟缓存过期时间
 
 # 重试配置
-INITIAL_RETRY_DELAY = 1.0  # 初始重试延迟（秒）
-MAX_RETRY_DELAY = 10.0  # 最大重试延迟（秒）
-RETRY_BACKOFF_FACTOR = 2.0  # 指数退避因子
+INITIAL_RETRY_DELAY = 0.1  # 初始重试延迟（秒）
+MAX_RETRY_DELAY = 1.0  # 最大重试延迟（秒）
+RETRY_BACKOFF_FACTOR = 1.5  # 指数退避因子
 
 
 def _get_cached_configs(db: db_dependency) -> Tuple[Optional[str], Optional[str], Optional[int]]:
