@@ -15,6 +15,7 @@ const getConfigDefinitions = (t) => [
   {"k": "key_validation_timeout_seconds", "l": t('config.keyValidationTimeout'), "required": true, "type": "number"},
   {"k": "key_validation_model_name", "l": t('config.keyValidationModelName'), "required": false, "type": "text"},
   {"k": "key_validation_concurrent_count", "l": t('config.keyValidationConcurrentCount'), "required": false, "type": "number"},
+  {"k": "proxy_retry_max_count", "l": t('config.proxyRetryMaxCount'), "required": false, "type": "number"},
 ];
 
 const ConfigPage = () => {

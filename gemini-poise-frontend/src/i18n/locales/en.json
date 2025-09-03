@@ -176,6 +176,7 @@
         "keyValidationTimeout": "Key Validation Timeout (seconds)",
         "keyValidationModelName": "Key Validation Model Name",
         "keyValidationConcurrentCount": "Key Validation Concurrent Count",
+        "proxyRetryMaxCount": "Proxy Request Max Retry Count",
         "pleaseInputField": "Please input the {{field}}!",
         "watermarkText": "Gemini Poise Config",
         "failedToLoadConfig": "Failed to load configuration.",

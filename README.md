@@ -311,6 +311,41 @@ Please ensure you have Docker and Docker Compose installed on your system.
 - [x] Logic for updating Key usage status
 - [x] Token bucket algorithm implementation
 
+## Configuration Management
+
+Gemini Poise provides flexible configuration management through the web interface:
+
+### Basic Configuration
+- **Target API URL**: Set the Gemini API endpoint URL
+- **API Token**: Internal authentication token for API access
+- **Key Validation Settings**: Configure API key validation intervals and parameters
+
+### Retry Configuration
+
+The system supports configurable retry mechanisms for improved reliability:
+
+#### Proxy Request Retry Count
+Configure the maximum number of retries for proxy requests when encountering temporary failures:
+
+| Configuration Value | Behavior | Total Attempts |
+|---------------------|----------|----------------|
+| **0** | No retries, only 1 attempt | 1 attempt |
+| **1** | 1 retry after initial failure | 2 attempts |
+| **2** | 2 retries after initial failure | 3 attempts |
+| **3** | 3 retries after initial failure (default) | 4 attempts |
+
+#### Configuration Recommendations
+- **0**: Suitable for latency-sensitive scenarios where immediate failure response is preferred
+- **1-2**: Suitable for general use cases with light retry logic
+- **3**: Default value, balanced between retry attempts and performance
+- **5+**: Suitable for unstable network environments, but may increase response latency
+
+#### Retry Strategy
+- **Exponential Backoff**: Delays increase progressively (1s → 2s → 4s → 8s)
+- **Jitter**: Random delay variations prevent thundering herd effects
+- **Smart Error Detection**: Only retries on 5xx server errors, 429 rate limit errors, and network failures
+- **Non-retryable Errors**: 4xx client errors are not retried as they indicate permanent failures
+
 ## Token Bucket Algorithm
 
 Gemini Poise implements an advanced token bucket algorithm for intelligent API key selection and rate limiting:

@@ -176,6 +176,7 @@
         "keyValidationTimeout": "密钥验证超时时间（秒）",
         "keyValidationModelName": "密钥验证模型名称",
         "keyValidationConcurrentCount": "密钥验证并发数量",
+        "proxyRetryMaxCount": "代理请求最大重试次数",
         "pleaseInputField": "请输入{{field}}！",
         "watermarkText": "Gemini Poise 配置",
         "failedToLoadConfig": "加载配置失败。",
