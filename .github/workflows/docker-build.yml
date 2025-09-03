@@ -39,6 +39,29 @@ jobs:
         echo "${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
+    - name: Check source branch
+      id: check_branch
+      run: |
+        # Fetch all branches
+        git fetch --all
+        
+        # Check which branches contain this commit
+        BRANCHES=$(git branch -r --contains HEAD | grep -E '(origin/main|origin/dev)' | head -1)
+        
+        if echo "$BRANCHES" | grep -q "origin/main"; then
+          echo "source_branch=main" >> $GITHUB_OUTPUT
+          echo "push_latest=true" >> $GITHUB_OUTPUT
+          echo "Tag is from main branch - will push latest tag"
+        elif echo "$BRANCHES" | grep -q "origin/dev"; then
+          echo "source_branch=dev" >> $GITHUB_OUTPUT  
+          echo "push_latest=false" >> $GITHUB_OUTPUT
+          echo "Tag is from dev branch - will not push latest tag"
+        else
+          echo "source_branch=unknown" >> $GITHUB_OUTPUT
+          echo "push_latest=false" >> $GITHUB_OUTPUT
+          echo "Tag source branch unknown - will not push latest tag"
+        fi
+
     - name: Build and push backend Docker image
       uses: docker/build-push-action@v5
       with:
@@ -48,8 +71,8 @@ jobs:
         tags: |
           alterem/gemini-poise:${{ steps.extract_tag.outputs.TAG }}
           ghcr.io/${{ github.repository }}/gemini-poise:${{ steps.extract_tag.outputs.TAG }}
-          ${{ github.ref_name == 'main' && 'alterem/gemini-poise:latest' || '' }}
-          ${{ github.ref_name == 'main' && format('ghcr.io/{0}/gemini-poise:latest', github.repository) || '' }}
+          ${{ steps.check_branch.outputs.push_latest == 'true' && 'alterem/gemini-poise:latest' || '' }}
+          ${{ steps.check_branch.outputs.push_latest == 'true' && format('ghcr.io/{0}/gemini-poise:latest', github.repository) || '' }}
         platforms: linux/amd64,linux/arm64
 
     - name: Build and push frontend Docker image
@@ -61,62 +84,8 @@ jobs:
         tags: |
           alterem/gemini-poise-frontend:${{ steps.extract_tag.outputs.TAG }}
           ghcr.io/${{ github.repository }}/gemini-poise-frontend:${{ steps.extract_tag.outputs.TAG }}
-          ${{ github.ref_name == 'main' && 'alterem/gemini-poise-frontend:latest' || '' }}
-          ${{ github.ref_name == 'main' && format('ghcr.io/{0}/gemini-poise-frontend:latest', github.repository) || '' }}
+          ${{ steps.check_branch.outputs.push_latest == 'true' && 'alterem/gemini-poise-frontend:latest' || '' }}
+          ${{ steps.check_branch.outputs.push_latest == 'true' && format('ghcr.io/{0}/gemini-poise-frontend:latest', github.repository) || '' }}
         platforms: linux/amd64,linux/arm64
 
-    - name: Generate Changelog
-      id: changelog
-      run: |
-        # Fetch all tags to ensure we have complete history
-        git fetch --tags || true
-        
-        # Get the previous tag (skip the current tag being built)
-        CURRENT_TAG="${GITHUB_REF#refs/tags/}"
-        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1 2>/dev/null || echo "")
-        echo "::debug::Current tag: '$CURRENT_TAG'"
-        echo "::debug::Previous tag found: '$PREVIOUS_TAG'"
-
-        CHANGELOG_CONTENT=""
-
-        if [ -z "$PREVIOUS_TAG" ]; then
-          echo "::debug::No previous tag found, generating full changelog"
-          CHANGELOG_CONTENT=$(git log --oneline --pretty=format:"* %s (%h)" || echo "* Initial release")
-        else
-          echo "::debug::Generating changelog from $PREVIOUS_TAG to HEAD"
-          CHANGELOG_CONTENT=$(git log --oneline --pretty=format:"* %s (%h)" "$PREVIOUS_TAG..HEAD" || echo "* No changes found")
-        fi
-
-        # Ensure we have some content
-        if [ -z "$CHANGELOG_CONTENT" ]; then
-          CHANGELOG_CONTENT="* No changes found"
-        fi
-
-        echo "::debug::Final changelog content:"
-        echo "$CHANGELOG_CONTENT"
-        
-        # Write to GitHub output with proper delimiter
-        DELIMITER="EOF_$(date +%s)"
-        echo "CHANGELOG<<$DELIMITER" >> "$GITHUB_OUTPUT"
-        echo "$CHANGELOG_CONTENT" >> "$GITHUB_OUTPUT"
-        echo "$DELIMITER" >> "$GITHUB_OUTPUT"
-      shell: bash
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.extract_tag.outputs.TAG }}
-        name: Release ${{ steps.extract_tag.outputs.TAG }}
-        body: |
-            ### Release ${{ github.ref_name }}
-            
-            #### Changelog
-            ${{ steps.changelog.outputs.CHANGELOG }}
-            
-            ---
-            
-            See the assets below for the builds.
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # ... existing code ...
