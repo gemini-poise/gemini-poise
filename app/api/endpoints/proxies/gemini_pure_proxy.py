@@ -31,7 +31,7 @@ MAX_RETRY_DELAY = 1.0  # 最大重试延迟（秒）
 RETRY_BACKOFF_FACTOR = 1.5  # 指数退避因子
 
 
-def _get_cached_configs(db: Session) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+def _get_cached_configs(db: Session) -> Tuple[Optional[str], Optional[str]]:
   """获取缓存的配置，减少数据库查询"""
   global _config_cache, _cache_timestamp
   import time
@@ -44,12 +44,10 @@ def _get_cached_configs(db: Session) -> Tuple[Optional[str], Optional[str], Opti
       # 批量查询配置
       target_config = crud.config.get_config_by_key(db, "target_api_url")
       api_token_config = crud.config.get_config_by_key(db, "api_token")
-      retry_count_config = crud.config.get_config_by_key(db, "proxy_retry_max_count")
 
       _config_cache = {
         "target_api_url": target_config.value if target_config else None,
         "api_token": api_token_config.value if api_token_config else None,
-        "proxy_retry_max_count": int(retry_count_config.value) if retry_count_config and retry_count_config.value else 3
       }
       _cache_timestamp = current_time
       logger.debug("Configuration cache refreshed")
@@ -57,13 +55,22 @@ def _get_cached_configs(db: Session) -> Tuple[Optional[str], Optional[str], Opti
       logger.error(f"Failed to refresh configuration cache: {e}")
       # 如果缓存刷新失败，保持原有缓存或返回默认值
       if not _config_cache:
-        return None, None, 3
+        return None, None
 
   return (
     _config_cache.get("target_api_url"),
-    _config_cache.get("api_token"),
-    _config_cache.get("proxy_retry_max_count", 3)
+    _config_cache.get("api_token")
   )
+
+
+def _get_retry_count(db: Session) -> int:
+  """实时获取重试次数配置，不使用缓存"""
+  try:
+    retry_count_config = crud.config.get_config_by_key(db, "proxy_retry_max_count")
+    return int(retry_count_config.value) if retry_count_config and retry_count_config.value else 3
+  except Exception as e:
+    logger.warning(f"Failed to get retry count config, using default value 3: {e}")
+    return 3
 
 
 def _extract_stream_parameter(body: bytes) -> Tuple[bool, Optional[Dict[str, Any]]]:
@@ -275,19 +282,22 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: Session = D
 
   try:
     # 2. 获取缓存的配置
-    target_api_url, api_token, retry_count = _get_cached_configs(db)
+    target_api_url, api_token = _get_cached_configs(db)
+    
+    # 3. 实时获取重试次数配置
+    retry_count = _get_retry_count(db)
 
     if not target_api_url:
       raise HTTPException(status_code=503, detail="目标 Gemini API URL 未配置，请在配置表中添加 'target_api_url'。")
     if not api_token:
       raise HTTPException(status_code=503, detail="内部 API 令牌未配置。")
 
-    # 3. 构建目标URL
+    # 4. 构建目标URL
     target_url = target_api_url.rstrip("/")
     full_target_url = f"{target_url}/{path}"
     logger.debug(f"Target URL: {full_target_url}")
 
-    # 4. 确定是否为流式请求
+    # 5. 确定是否为流式请求
     stream = False
 
     # 检查查询参数中的alt=sse
@@ -300,7 +310,7 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: Session = D
       if body:
         stream, _ = _extract_stream_parameter(body)
 
-    # 5. 验证内部API密钥
+    # 6. 验证内部API密钥
     internal_api_key = _get_api_key_from_request(request)
 
     if not internal_api_key or internal_api_key != api_token:
@@ -310,11 +320,11 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: Session = D
         detail="Invalid or missing internal API key."
       )
 
-    # 6. 准备查询参数（移除内部key）
+    # 7. 准备查询参数（移除内部key）
     query_params_to_send = dict(request.query_params)
     query_params_to_send.pop("key", None)
 
-    # 7. 调用带重试的基础代理，使用缓存的重试次数
+    # 8. 调用带重试的基础代理，使用实时获取的重试次数
     # API密钥将在重试函数内部动态获取
     response = await _execute_proxy_request_with_retry(
       request=request,
