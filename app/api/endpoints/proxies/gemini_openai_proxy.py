@@ -122,9 +122,30 @@ class RequestTransformer:
     if max_tokens is not None:
       config["maxOutputTokens"] = max_tokens
 
-    config["thinkingConfig"] = openai_request.get(
-      "thinkingConfig", {"includeThoughts": False, "thinkingBudget": 0}
-    )
+    # 获取模型名称以判断是否需要特殊处理
+    model = openai_request.get("model", "")
+
+    # 获取用户的 thinkingConfig，如果没有提供则使用默认值
+    user_thinking_config = openai_request.get("thinkingConfig")
+
+    if user_thinking_config is not None:
+      # 用户明确提供了 thinkingConfig，直接使用
+      config["thinkingConfig"] = user_thinking_config
+    else:
+      # 用户没有提供 thinkingConfig，根据模型设置默认值
+      # 对于 Gemini 2.5 系列模型（pro, flash），可能需要 thinking 模式
+      if any(keyword in model.lower() for keyword in ["2.5", "pro"]):
+        # 对于可能需要 thinking 的模型，尝试使用基础 thinking 配置
+        config["thinkingConfig"] = {
+          "includeThoughts": False,
+          "thinkingBudget": -1  # 使用 -1 表示完整 thinking，避免 budget 0 的问题
+        }
+      else:
+        # 对于其他模型，使用默认的无 thinking 配置
+        config["thinkingConfig"] = {
+          "includeThoughts": False,
+          "thinkingBudget": 0
+        }
 
     return config
 
