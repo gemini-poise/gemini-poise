@@ -4,7 +4,8 @@ import logging
 import random
 from typing import Optional, Dict, Any, Tuple
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
+from sqlalchemy.orm import Session
 
 from .base_proxy import (
   base_proxy_request,
@@ -13,7 +14,7 @@ from .base_proxy import (
 )
 from .... import crud
 from ....core.config import settings
-from ....core.security import db_dependency
+from ....core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ MAX_RETRY_DELAY = 1.0  # 最大重试延迟（秒）
 RETRY_BACKOFF_FACTOR = 1.5  # 指数退避因子
 
 
-def _get_cached_configs(db: db_dependency) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+def _get_cached_configs(db: Session) -> Tuple[Optional[str], Optional[str], Optional[int]]:
   """获取缓存的配置，减少数据库查询"""
   global _config_cache, _cache_timestamp
   import time
@@ -99,10 +100,12 @@ def _is_retryable_error(exception: Exception) -> bool:
   """判断异常是否可以重试"""
   if isinstance(exception, HTTPException):
     # 4xx和5xx错误都可以重试（除了400参数错误，因为换key无法解决参数问题）
+    # 特别允许429限额错误重试，因为换API key可能解决问题
     return exception.status_code >= 400 and exception.status_code != 400
 
   if isinstance(exception, ProxyError):
     # 基于ProxyError的状态码判断，4xx和5xx都可以重试（除了400）
+    # 特别允许429限额错误重试
     return exception.status_code >= 400 and exception.status_code != 400
 
   # 网络相关错误通常可以重试
@@ -149,7 +152,7 @@ def _get_api_key_from_request(request: Request) -> Optional[str]:
 
 async def _execute_proxy_request_with_retry(
   request: Request,
-  db: db_dependency,
+  db: Session,
   full_target_url: str,
   stream: bool,
   query_params_to_send: Dict[str, Any],
@@ -165,12 +168,6 @@ async def _execute_proxy_request_with_retry(
 
   for attempt in range(total_attempts):
     try:
-      # Determine if this is a retry
-      if attempt == 0:
-        logger.info(f"Executing initial request (attempt {attempt + 1}/{total_attempts})")
-      else:
-        logger.info(f"Executing retry request (retry {attempt}/{max_retries}, total attempt {attempt + 1}/{total_attempts})")
-
       logger.debug(f"Proxy request attempt {attempt + 1}/{total_attempts}")
 
       # 每次尝试都获取新的API密钥
@@ -189,22 +186,43 @@ async def _execute_proxy_request_with_retry(
         selected_key_obj=current_api_key_obj,
       )
 
-      # 请求成功，返回响应
-      if attempt == 0:
-        logger.info(f"✅ Proxy request succeeded (initial request successful, no retries needed)")
-      else:
-        logger.info(f"✅ Proxy request retry succeeded (succeeded after {attempt} retries, total {attempt + 1} attempts)")
+      # 检查响应状态码，只有真正成功时才记录成功日志
+      if hasattr(response, 'status_code') and 200 <= response.status_code < 300:
+        # 请求成功，返回响应
+        if attempt == 0:
+          logger.info(f"✅ Proxy request succeeded (initial request successful, no retries needed)")
+        else:
+          logger.info(f"✅ Proxy request retry succeeded (succeeded after {attempt} retries, total {attempt + 1} attempts)")
 
-      return response
+        return response
+      else:
+        # 响应状态码表示失败，将其作为异常处理
+        status_code = getattr(response, 'status_code', 500)
+        if hasattr(response, 'content'):
+          error_content = response.content.decode('utf-8') if isinstance(response.content, bytes) else str(response.content)
+        else:
+          error_content = "Unknown error"
+
+        raise ProxyError(
+          status_code=status_code,
+          detail=f"API request failed with status {status_code}: {error_content}"
+        )
 
     except Exception as e:
       last_exception = e
 
-      # Determine if this is a retry failure
-      if attempt == 0:
-        logger.warning(f"❌ Initial request failed (attempt {attempt + 1}/{total_attempts}): {str(e)}")
+      # 特殊处理429配额错误的日志记录
+      if isinstance(e, ProxyError) and e.status_code == 429:
+        if attempt == 0:
+          logger.warning(f"💳 Initial request hit quota limit (attempt {attempt + 1}/{total_attempts}): API key quota exhausted")
+        else:
+          logger.warning(f"💳 Retry request hit quota limit (retry {attempt}/{max_retries}, total attempt {attempt + 1}/{total_attempts}): API key quota exhausted")
       else:
-        logger.warning(f"❌ Retry request failed (retry {attempt}/{max_retries}, total attempt {attempt + 1}/{total_attempts}): {str(e)}")
+        # Determine if this is a retry failure
+        if attempt == 0:
+          logger.warning(f"❌ Initial request failed (attempt {attempt + 1}/{total_attempts}): {str(e)}")
+        else:
+          logger.warning(f"❌ Retry request failed (retry {attempt}/{max_retries}, total attempt {attempt + 1}/{total_attempts}): {str(e)}")
 
       # 判断是否可以重试
       if not _is_retryable_error(e):
@@ -213,24 +231,32 @@ async def _execute_proxy_request_with_retry(
 
       # 如果这是最后一次尝试，不再重试
       if attempt == total_attempts - 1:
-        logger.error(f"💥 All attempts failed (initial request + {max_retries} retries = {total_attempts} total attempts all failed)")
+        if isinstance(e, ProxyError) and e.status_code == 429:
+          logger.error(f"💥 All API keys exhausted quota (initial request + {max_retries} retries = {total_attempts} total attempts all hit quota limits)")
+        else:
+          logger.error(f"💥 All attempts failed (initial request + {max_retries} retries = {total_attempts} total attempts all failed)")
         break
 
       # 计算延迟时间并等待
       delay = await _calculate_retry_delay(attempt)
-      logger.info(f"⏳ Preparing retry {attempt + 1}/{max_retries}, will retry with new API key after {delay:.2f} seconds...")
+      if isinstance(e, ProxyError) and e.status_code == 429:
+        logger.info(f"⏳ Quota limit hit, preparing retry {attempt + 1}/{max_retries}, will try different API key after {delay:.2f} seconds...")
+      else:
+        logger.info(f"⏳ Preparing retry {attempt + 1}/{max_retries}, will retry with new API key after {delay:.2f} seconds...")
       await asyncio.sleep(delay)
 
   # 所有重试都失败，抛出最后一个异常
   logger.error(f"🔥 Retry mechanism completed, all {total_attempts} attempts failed, throwing last exception")
   if last_exception:
     raise last_exception
+  else:
+    raise HTTPException(status_code=503, detail="All retry attempts failed")
 
 
 @router.api_route(
   "/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
 )
-async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependency):
+async def gemini_pure_proxy_request(path: str, request: Request, db: Session = Depends(get_db)):
   """
   Gemini纯代理请求处理
 
@@ -263,7 +289,6 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
 
     # 4. 确定是否为流式请求
     stream = False
-    cached_body = None
 
     # 检查查询参数中的alt=sse
     if request.query_params.get("alt") == "sse":
@@ -273,7 +298,7 @@ async def gemini_pure_proxy_request(path: str, request: Request, db: db_dependen
       # 读取请求体一次，避免重复读取
       body = await request.body()
       if body:
-        stream, cached_body = _extract_stream_parameter(body)
+        stream, _ = _extract_stream_parameter(body)
 
     # 5. 验证内部API密钥
     internal_api_key = _get_api_key_from_request(request)
