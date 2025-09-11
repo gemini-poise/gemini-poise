@@ -243,6 +243,12 @@
         "loadError": "Failed to load cache status",
         "inaccuracyWarning": "Cache data is inconsistent with actual data, recommend refreshing cache"
     },
+    "wallpaper": {
+        "download": "Download Wallpaper",
+        "downloading": "Downloading wallpaper...",
+        "downloadSuccess": "Wallpaper downloaded successfully!",
+        "downloadError": "Failed to download wallpaper"
+    },
     "notFound": {
         "title": "404",
         "subtitle": "Sorry, the page you visited does not exist.",

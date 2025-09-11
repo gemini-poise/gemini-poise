@@ -243,6 +243,12 @@
         "loadError": "缓存状态加载失败",
         "inaccuracyWarning": "缓存数据与实际数据不一致，建议刷新缓存"
     },
+    "wallpaper": {
+        "download": "下载壁纸",
+        "downloading": "正在下载壁纸...",
+        "downloadSuccess": "壁纸下载成功！",
+        "downloadError": "壁纸下载失败"
+    },
     "notFound": {
         "title": "404",
         "subtitle": "抱歉，您访问的页面不存在。",

@@ -71,12 +71,6 @@ button:focus-visible {
   }
 }
 
-.login-background {
-  background-image: url('/743986.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-}
 
 /* Styles for API Key table rows based on status */
 .row-error td {
