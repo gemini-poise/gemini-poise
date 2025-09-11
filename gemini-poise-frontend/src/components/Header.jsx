@@ -96,19 +96,19 @@ const Header = () => {
           />
 
           {user && (
-            <Button
-              type="text"
-              icon={<UserOutlined />}
+            <a
               onClick={handleUsernameClick}
-              style={{
+              style={{ 
                 color: 'white',
-                border: 'none',
-                padding: '4px 8px',
-                height: 'auto'
+                cursor: 'pointer',
+                textDecoration: 'none'
               }}
             >
-              {user.username}
-            </Button>
+              <Space>
+                <UserOutlined />
+                <span>{user.username}</span>
+              </Space>
+            </a>
           )}
 
           <a
