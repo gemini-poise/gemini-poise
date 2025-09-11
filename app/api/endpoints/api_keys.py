@@ -237,7 +237,7 @@ async def bulk_check_api_keys(
         background_tasks.add_task(execute_bulk_check_task_sync, task_id)
         
         return {
-            "message": "批量检测任务已创建",
+            "message": "apiKeys.bulkCheckTaskCreated",
             "task_id": task_id,
             "total_keys": len(request_data.key_ids)
         }

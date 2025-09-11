@@ -250,7 +250,10 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       const taskId = response.data.task_id;
       setBulkCheckTaskId(taskId);
       
-      message.success(response.data.message);
+      // 处理后端返回的国际化键
+      const messageKey = response.data.message;
+      const translatedMessage = t(messageKey) !== messageKey ? t(messageKey) : messageKey;
+      message.success(translatedMessage);
       
       // 开始轮询任务状态
       startPollingTaskStatus(taskId);

@@ -339,17 +339,33 @@ const KeyManagementPage = () => {
                       case 'exhausted':
                         color = 'yellow';
                         break;
+                      case 'timeout':
+                        color = 'orange';
+                        break;
                       default:
                         color = 'default';
                     }
                     const statusText = status === 'valid' ? t('apiKeys.valid') :
                       status === 'invalid' ? t('apiKeys.invalid') :
                         status === 'error' ? t('apiKeys.error') :
-                          status === 'exhausted' ? t('apiKeys.exhausted') : 'N/A';
+                          status === 'exhausted' ? t('apiKeys.exhausted') :
+                            status === 'timeout' ? t('apiKeys.timeout') : 'N/A';
                     return <Tag color={color}>{statusText}</Tag>;
                   }
                 },
-                {title: t('apiKeys.message'), dataIndex: 'message', key: 'message', width: '55%'},
+                {
+                  title: t('apiKeys.message'), 
+                  dataIndex: 'message', 
+                  key: 'message', 
+                  width: '55%',
+                  render: (message) => {
+                    // 如果是国际化键，则翻译；否则直接显示
+                    if (message && message.startsWith('apiKeys.validation.')) {
+                      return t(message);
+                    }
+                    return message || '-';
+                  }
+                },
               ]}
               rowKey="key_value"
               pagination={false}

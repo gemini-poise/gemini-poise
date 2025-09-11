@@ -4,7 +4,9 @@ import uuid
 import json
 from datetime import datetime, timezone
 from typing import List, Dict, Type, TypeVar, Optional, Tuple
+from enum import Enum
 import concurrent.futures
+from dataclasses import dataclass
 
 import httpx
 from sqlalchemy.orm import Session
@@ -20,154 +22,219 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 # 常量定义
-MAX_CONCURRENT_WORKERS = 10
-DEFAULT_CONCURRENT_WORKERS = 1
-DEFAULT_TIMEOUT = 10.0
-DEFAULT_MAX_FAILED_COUNT = 3
-DEFAULT_MODEL_NAME = "gemini-1.5-flash"
+class ValidationConfig:
+    """验证配置常量"""
+    MAX_CONCURRENT_WORKERS = 10
+    DEFAULT_CONCURRENT_WORKERS = 1
+    DEFAULT_TIMEOUT = 30.0  # 增加到30秒匹配前端
+    DEFAULT_MAX_FAILED_COUNT = 3
+    DEFAULT_MODEL_NAME = "gemini-1.5-flash"
+    
+    # Redis任务存储配置
+    BULK_CHECK_TASK_PREFIX = "bulk_check_task:"
+    BULK_CHECK_TASK_TTL = 3600  # 1小时过期（运行中的任务）
+    BULK_CHECK_COMPLETED_TASK_TTL = 60  # 1分钟过期（已完成的任务）
 
-# Redis任务存储配置
-BULK_CHECK_TASK_PREFIX = "bulk_check_task:"
-BULK_CHECK_TASK_TTL = 3600  # 1小时过期（运行中的任务）
-BULK_CHECK_COMPLETED_TASK_TTL = 60  # 1分钟过期（已完成的任务）
+
+class ValidationStatus(Enum):
+    """验证状态枚举"""
+    VALID = "valid"
+    EXHAUSTED = "exhausted"
+    ERROR = "error"
+    TIMEOUT_ABORT = "timeout_abort"
+    NETWORK_ERROR = "network_error"
+
+
+@dataclass
+class ValidationResult:
+    """验证结果数据类"""
+    key: models.ApiKey
+    is_valid: bool
+    status: ValidationStatus
+    message: str = ""
+    
+    @property
+    def status_str(self) -> str:
+        """返回状态字符串"""
+        if self.status == ValidationStatus.TIMEOUT_ABORT:
+            return "timeout"
+        return self.status.value
+        
+    @property
+    def display_message(self) -> str:
+        """返回国际化消息键"""
+        if self.status == ValidationStatus.VALID:
+            return "apiKeys.validation.keyIsValid"
+        elif self.status == ValidationStatus.EXHAUSTED:
+            return "apiKeys.validation.tooManyRequests"
+        elif self.status == ValidationStatus.TIMEOUT_ABORT:
+            return "apiKeys.validation.timeoutTemporary"
+        else:
+            return f"Validation failed: {self.message}"
+
+
+# HTTP 超时配置
+class HttpTimeoutConfig:
+    """HTTP 超时配置"""
+    CONNECT = 10.0
+    READ = 30.0  # 使用配置值
+    WRITE = 15.0
+    POOL = 5.0
 
 # 验证请求的固定头部和数据
-VALIDATION_HEADERS = {
-    "accept": "*/*",
-    "accept-language": "zh-CN",
-    "content-type": "application/json",
-    "priority": "u=1, i",
-    "sec-ch-ua": '"Not:A-Brand";v="24", "Chromium";v="134"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"macOS"',
-    "sec-fetch-dest": "empty",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-site": "cross-site",
-    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.205 Safari/537.36",
-    "x-goog-api-client": "google-genai-sdk/0.13.0 gl-node/web",
-}
+class RequestConfig:
+    """请求配置类"""
+    HEADERS = {
+        "accept": "*/*",
+        "accept-language": "zh-CN",
+        "content-type": "application/json",
+        "priority": "u=1, i",
+        "sec-ch-ua": '"Not:A-Brand";v="24", "Chromium";v="134"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "cross-site",
+        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.205 Safari/537.36",
+        "x-goog-api-client": "google-genai-sdk/0.13.0 gl-node/web",
+    }
 
-VALIDATION_JSON_DATA = {
-    "contents": [{"parts": [{"text": "hi"}], "role": "user"}],
-    "generationConfig": {
-        "maxOutputTokens": 1,
-        "thinkingConfig": {
-            "includeThoughts": False,
-            "thinkingBudget": 0,
+    JSON_DATA = {
+        "contents": [{"parts": [{"text": "hi"}], "role": "user"}],
+        "generationConfig": {
+            "maxOutputTokens": 1,
+            "thinkingConfig": {
+                "includeThoughts": False,
+                "thinkingBudget": 0,
+            },
         },
-    },
-}
+    }
 
 
+class RedisTaskManager:
+    """Redis 任务管理器"""
+    
+    @staticmethod
+    def _get_redis_client():
+        """获取Redis客户端"""
+        from ..crud.api_keys_cache import get_redis_client
+        return get_redis_client()
+
+    @classmethod
+    def create_bulk_check_task(cls, key_ids: List[int]) -> str:
+        """创建批量检测任务，返回任务ID"""
+        task_id = str(uuid.uuid4())
+        
+        try:
+            redis_client = cls._get_redis_client()
+            
+            task_data = {
+                "task_id": task_id,
+                "key_ids": key_ids,
+                "status": "pending",
+                "progress": 0,
+                "total_keys": len(key_ids),
+                "completed_keys": 0,
+                "results": [],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "started_at": None,
+                "finished_at": None,
+                "error": None
+            }
+            
+            redis_key = f"{ValidationConfig.BULK_CHECK_TASK_PREFIX}{task_id}"
+            redis_client.setex(redis_key, ValidationConfig.BULK_CHECK_TASK_TTL, json.dumps(task_data))
+            
+            logger.info(f"Created bulk check task {task_id} for {len(key_ids)} keys")
+            return task_id
+            
+        except Exception as e:
+            logger.error(f"Failed to create bulk check task: {e}")
+            raise
+
+    @classmethod
+    def get_bulk_check_task_status(cls, task_id: str) -> Optional[Dict]:
+        """获取批量检测任务状态"""
+        try:
+            redis_client = cls._get_redis_client()
+            redis_key = f"{ValidationConfig.BULK_CHECK_TASK_PREFIX}{task_id}"
+            
+            task_data = redis_client.get(redis_key)
+            if not task_data:
+                return None
+                
+            return json.loads(task_data)
+            
+        except Exception as e:
+            logger.error(f"Failed to get bulk check task status: {e}")
+            return None
+
+    @classmethod
+    def update_bulk_check_task(cls, task_id: str, **updates):
+        """更新批量检测任务状态"""
+        try:
+            redis_client = cls._get_redis_client()
+            redis_key = f"{ValidationConfig.BULK_CHECK_TASK_PREFIX}{task_id}"
+            
+            task_data = redis_client.get(redis_key)
+            if not task_data:
+                logger.warning(f"Task {task_id} not found for update")
+                return
+                
+            task_dict = json.loads(task_data)
+            task_dict.update(updates)
+            
+            # 更新进度百分比
+            if "completed_keys" in updates:
+                total_keys = task_dict.get("total_keys", 1)
+                completed = task_dict.get("completed_keys", 0)
+                task_dict["progress"] = round((completed / total_keys) * 100, 2)
+            
+            # 如果任务完成或失败，使用较短的TTL
+            task_status = task_dict.get("status", "pending")
+            ttl = (ValidationConfig.BULK_CHECK_COMPLETED_TASK_TTL 
+                   if task_status in ["completed", "failed"] 
+                   else ValidationConfig.BULK_CHECK_TASK_TTL)
+            
+            redis_client.setex(redis_key, ttl, json.dumps(task_dict))
+            
+            if task_status in ["completed", "failed"]:
+                logger.info(f"Task {task_id} {task_status}, TTL set to {ttl} seconds")
+            
+        except Exception as e:
+            logger.error(f"Failed to update bulk check task {task_id}: {e}")
+
+    @classmethod
+    def delete_bulk_check_task(cls, task_id: str) -> bool:
+        """删除批量检测任务数据"""
+        try:
+            redis_client = cls._get_redis_client()
+            redis_key = f"{ValidationConfig.BULK_CHECK_TASK_PREFIX}{task_id}"
+            
+            result = redis_client.delete(redis_key)
+            logger.info(f"Deleted bulk check task {task_id} from Redis")
+            return result > 0
+            
+        except Exception as e:
+            logger.error(f"Failed to delete bulk check task {task_id}: {e}")
+            return False
+
+
+# 向后兼容性保持原函数名
 def _get_redis_client():
-    """获取Redis客户端"""
-    from ..crud.api_keys_cache import get_redis_client
-    return get_redis_client()
-
+    return RedisTaskManager._get_redis_client()
 
 def create_bulk_check_task(key_ids: List[int]) -> str:
-    """
-    创建批量检测任务，返回任务ID
-    """
-    task_id = str(uuid.uuid4())
-    
-    try:
-        redis_client = _get_redis_client()
-        
-        task_data = {
-            "task_id": task_id,
-            "key_ids": key_ids,
-            "status": "pending",
-            "progress": 0,
-            "total_keys": len(key_ids),
-            "completed_keys": 0,
-            "results": [],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "started_at": None,
-            "finished_at": None,
-            "error": None
-        }
-        
-        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
-        redis_client.setex(redis_key, BULK_CHECK_TASK_TTL, json.dumps(task_data))
-        
-        logger.info(f"Created bulk check task {task_id} for {len(key_ids)} keys")
-        return task_id
-        
-    except Exception as e:
-        logger.error(f"Failed to create bulk check task: {e}")
-        raise
-
+    return RedisTaskManager.create_bulk_check_task(key_ids)
 
 def get_bulk_check_task_status(task_id: str) -> Optional[Dict]:
-    """
-    获取批量检测任务状态
-    """
-    try:
-        redis_client = _get_redis_client()
-        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
-        
-        task_data = redis_client.get(redis_key)
-        if not task_data:
-            return None
-            
-        return json.loads(task_data)
-        
-    except Exception as e:
-        logger.error(f"Failed to get bulk check task status: {e}")
-        return None
-
-
-def delete_bulk_check_task(task_id: str) -> bool:
-    """
-    删除批量检测任务数据
-    """
-    try:
-        redis_client = _get_redis_client()
-        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
-        
-        result = redis_client.delete(redis_key)
-        logger.info(f"Deleted bulk check task {task_id} from Redis")
-        return result > 0
-        
-    except Exception as e:
-        logger.error(f"Failed to delete bulk check task {task_id}: {e}")
-        return False
-
+    return RedisTaskManager.get_bulk_check_task_status(task_id)
 
 def update_bulk_check_task(task_id: str, **updates):
-    """
-    更新批量检测任务状态
-    """
-    try:
-        redis_client = _get_redis_client()
-        redis_key = f"{BULK_CHECK_TASK_PREFIX}{task_id}"
-        
-        task_data = redis_client.get(redis_key)
-        if not task_data:
-            logger.warning(f"Task {task_id} not found for update")
-            return
-            
-        task_dict = json.loads(task_data)
-        task_dict.update(updates)
-        
-        # 更新进度百分比
-        if "completed_keys" in updates:
-            total_keys = task_dict.get("total_keys", 1)
-            completed = task_dict.get("completed_keys", 0)
-            task_dict["progress"] = round((completed / total_keys) * 100, 2)
-        
-        # 如果任务完成或失败，使用较短的TTL
-        task_status = task_dict.get("status", "pending")
-        ttl = BULK_CHECK_COMPLETED_TASK_TTL if task_status in ["completed", "failed"] else BULK_CHECK_TASK_TTL
-        
-        redis_client.setex(redis_key, ttl, json.dumps(task_dict))
-        
-        if task_status in ["completed", "failed"]:
-            logger.info(f"Task {task_id} {task_status}, TTL set to {ttl} seconds")
-        
-    except Exception as e:
-        logger.error(f"Failed to update bulk check task {task_id}: {e}")
+    return RedisTaskManager.update_bulk_check_task(task_id, **updates)
+
+def delete_bulk_check_task(task_id: str) -> bool:
+    return RedisTaskManager.delete_bulk_check_task(task_id)
 
 
 def execute_bulk_check_task_sync(task_id: str):
@@ -307,68 +374,149 @@ def _get_validation_config(db: Session) -> Tuple[str, int, float, int]:
         raise ValueError("Target AI API URL is not configured")
     
     target_url = config.value.rstrip("/")
-    model_name = crud_config.get_config_value(db, "key_validation_model_name") or DEFAULT_MODEL_NAME
+    model_name = crud_config.get_config_value(db, "key_validation_model_name") or ValidationConfig.DEFAULT_MODEL_NAME
     validation_endpoint = f"{target_url}/models/{model_name}:streamGenerateContent?alt=sse"
     
-    max_failed_count = _get_config_value_with_default(db, "key_validation_max_failed_count", DEFAULT_MAX_FAILED_COUNT, int)
-    timeout_seconds = _get_config_value_with_default(db, "key_validation_timeout_seconds", DEFAULT_TIMEOUT, float)
+    max_failed_count = _get_config_value_with_default(
+        db, "key_validation_max_failed_count", ValidationConfig.DEFAULT_MAX_FAILED_COUNT, int
+    )
+    timeout_seconds = _get_config_value_with_default(
+        db, "key_validation_timeout_seconds", ValidationConfig.DEFAULT_TIMEOUT, float
+    )
     
     # 获取并发数量配置，默认为1，最大限制为10
-    concurrent_count = _get_config_value_with_default(db, "key_validation_concurrent_count", DEFAULT_CONCURRENT_WORKERS, int)
+    concurrent_count = _get_config_value_with_default(
+        db, "key_validation_concurrent_count", ValidationConfig.DEFAULT_CONCURRENT_WORKERS, int
+    )
     if concurrent_count < 1:
-        concurrent_count = DEFAULT_CONCURRENT_WORKERS
+        concurrent_count = ValidationConfig.DEFAULT_CONCURRENT_WORKERS
         logger.warning("Invalid concurrent count (< 1), using default 1.")
-    elif concurrent_count > MAX_CONCURRENT_WORKERS:
-        concurrent_count = MAX_CONCURRENT_WORKERS
-        logger.warning(f"Concurrent count exceeds maximum limit ({MAX_CONCURRENT_WORKERS}), using maximum {MAX_CONCURRENT_WORKERS}.")
+    elif concurrent_count > ValidationConfig.MAX_CONCURRENT_WORKERS:
+        concurrent_count = ValidationConfig.MAX_CONCURRENT_WORKERS
+        logger.warning(f"Concurrent count exceeds maximum limit ({ValidationConfig.MAX_CONCURRENT_WORKERS}), using maximum {ValidationConfig.MAX_CONCURRENT_WORKERS}.")
     
     return validation_endpoint, max_failed_count, timeout_seconds, concurrent_count
 
 
+class KeyValidator:
+    """密钥验证器类"""
+    
+    @staticmethod
+    def _create_http_client(timeout_seconds: float) -> httpx.Client:
+        """创建优化的HTTP客户端"""
+        timeout_config = httpx.Timeout(
+            connect=HttpTimeoutConfig.CONNECT,
+            read=timeout_seconds,
+            write=HttpTimeoutConfig.WRITE,
+            pool=HttpTimeoutConfig.POOL
+        )
+        
+        return httpx.Client(timeout=timeout_config)
+    
+    @staticmethod
+    def _validate_single_key(
+        key: models.ApiKey,
+        validation_endpoint: str,
+        timeout_seconds: float,
+    ) -> ValidationResult:
+        """验证单个API密钥"""
+        try:
+            headers = RequestConfig.HEADERS.copy()
+            headers["x-goog-api-key"] = key.key_value
+            
+            with KeyValidator._create_http_client(timeout_seconds) as client:
+                response = client.post(validation_endpoint, headers=headers, json=RequestConfig.JSON_DATA)
+                is_valid = response.status_code == 200 and "text" in response.text
+                
+                if response.status_code == 429:
+                    return ValidationResult(key, False, ValidationStatus.EXHAUSTED)
+                elif is_valid:
+                    return ValidationResult(key, True, ValidationStatus.VALID)
+                else:
+                    return ValidationResult(key, False, ValidationStatus.ERROR, f"HTTP_{response.status_code}")
+
+        except httpx.RequestError as exc:
+            # 特殊处理 AbortError
+            error_msg = str(exc)
+            if "AbortError" in error_msg or "signal is aborted" in error_msg:
+                logger.warning(f"Key validation aborted for API Key ID {key.id} ({key.key_value[:8]}...): {exc}")
+                return ValidationResult(key, False, ValidationStatus.TIMEOUT_ABORT, str(exc))
+            else:
+                logger.error(f"Error validating API Key ID {key.id} ({key.key_value[:8]}...): {exc}")
+                return ValidationResult(key, False, ValidationStatus.NETWORK_ERROR, str(exc))
+        except Exception as e:
+            logger.error(f"Unexpected error during validation for API Key ID {key.id} ({key.key_value[:8]}...): {e}")
+            return ValidationResult(key, False, ValidationStatus.ERROR, str(e))
+    
+    @staticmethod
+    def _update_key_status_from_result(result: ValidationResult, max_failed_count: int):
+        """根据验证结果更新密钥状态"""
+        with SessionLocal() as thread_db:
+            thread_key = crud_api_keys.get_api_key(thread_db, result.key.id)
+            if not thread_key:
+                return
+                
+            if result.status == ValidationStatus.EXHAUSTED:
+                update_key_status_based_on_response(
+                    thread_db, thread_key, False, max_failed_count, 
+                    status_override="exhausted", count_usage=False
+                )
+            elif result.status == ValidationStatus.VALID:
+                update_key_status_based_on_response(
+                    thread_db, thread_key, True, max_failed_count, count_usage=False
+                )
+            elif result.status == ValidationStatus.TIMEOUT_ABORT:
+                # AbortError 不应该计入失败次数，只记录为临时错误
+                logger.info(f"API Key ID {result.key.id} validation aborted due to timeout, not counting as failure")
+                # 不更新失败计数，保持原状态
+                pass
+            else:
+                update_key_status_based_on_response(
+                    thread_db, thread_key, False, max_failed_count, 
+                    status_override="error", count_usage=False
+                )
+            
+            thread_db.commit()
+
+
+# 向后兼容性函数
 def _validate_single_key(
     key: models.ApiKey,
     validation_endpoint: str,
     timeout_seconds: float,
 ) -> Tuple[models.ApiKey, bool, str]:
-    """验证单个API密钥"""
-    try:
-        headers = VALIDATION_HEADERS.copy()
-        headers["x-goog-api-key"] = key.key_value
-        
-        with httpx.Client(timeout=timeout_seconds) as client:
-            response = client.post(validation_endpoint, headers=headers, json=VALIDATION_JSON_DATA)
-            is_valid = response.status_code == 200 and "text" in response.text
-            
-            if response.status_code == 429:
-                return key, False, "exhausted"
-            elif is_valid:
-                return key, True, "valid"
-            else:
-                return key, False, f"error_{response.status_code}"
-
-    except httpx.RequestError as exc:
-        logger.error(f"Error validating API Key ID {key.id} ({key.key_value[:8]}...): {exc}")
-        return key, False, f"network_error: {exc}"
-    except Exception as e:
-        logger.error(f"Unexpected error during validation for API Key ID {key.id} ({key.key_value[:8]}...): {e}")
-        return key, False, f"unexpected_error: {e}"
+    """向后兼容的验证函数"""
+    result = KeyValidator._validate_single_key(key, validation_endpoint, timeout_seconds)
+    # 转换新的结果格式为旧格式
+    if result.status == ValidationStatus.EXHAUSTED:
+        return result.key, False, "exhausted"
+    elif result.status == ValidationStatus.VALID:
+        return result.key, True, "valid"
+    elif result.status == ValidationStatus.TIMEOUT_ABORT:
+        return result.key, False, "timeout_abort"
+    else:
+        return result.key, False, result.message
 
 
 def _update_key_status_in_thread(key_id: int, status_info: str, max_failed_count: int):
-    """在独立线程中更新密钥状态"""
+    """向后兼容的状态更新函数"""
     with SessionLocal() as thread_db:
         thread_key = crud_api_keys.get_api_key(thread_db, key_id)
         if not thread_key:
             return
-            
-        if status_info == "exhausted":
-            update_key_status_based_on_response(thread_db, thread_key, False, max_failed_count, status_override="exhausted", count_usage=False)
-        elif status_info == "valid":
-            update_key_status_based_on_response(thread_db, thread_key, True, max_failed_count, count_usage=False)
-        else:
-            update_key_status_based_on_response(thread_db, thread_key, False, max_failed_count, status_override="error", count_usage=False)
         
-        thread_db.commit()
+        # 创建模拟的ValidationResult来使用新的更新逻辑
+        if status_info == "exhausted":
+            status = ValidationStatus.EXHAUSTED
+        elif status_info == "valid":
+            status = ValidationStatus.VALID
+        elif status_info == "timeout_abort":
+            status = ValidationStatus.TIMEOUT_ABORT
+        else:
+            status = ValidationStatus.ERROR
+            
+        result = ValidationResult(thread_key, status == ValidationStatus.VALID, status, status_info)
+        KeyValidator._update_key_status_from_result(result, max_failed_count)
 
 
 def _perform_concurrent_validation(
@@ -385,17 +533,18 @@ def _perform_concurrent_validation(
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_count) as executor:
         future_to_key = {
-            executor.submit(_validate_single_key, key, validation_endpoint, timeout_seconds): key 
+            executor.submit(KeyValidator._validate_single_key, key, validation_endpoint, timeout_seconds): key 
             for key in keys_to_validate
         }
         
         for future in concurrent.futures.as_completed(future_to_key):
             try:
-                key, is_valid, status_info = future.result()
-                logger.info(f"validating API Key ID {key.id} ({key.key_value[:8]}...) is valid : {is_valid}, status_info: {status_info}")
-                _update_key_status_in_thread(key.id, status_info, max_failed_count)
+                result = future.result()
+                logger.info(f"validating API Key ID {result.key.id} ({result.key.key_value[:8]}...) "
+                           f"is valid : {result.is_valid}, status: {result.status}")
+                KeyValidator._update_key_status_from_result(result, max_failed_count)
                 
-                if is_valid:
+                if result.is_valid:
                     validated_count += 1
                 else:
                     invalidated_count += 1
@@ -506,30 +655,23 @@ def check_keys_validity(db: Session, key_ids: List[int], task_id: Optional[str] 
         completed_count = 0
         with concurrent.futures.ThreadPoolExecutor(max_workers=concurrent_count) as executor:
             future_to_key = {
-                executor.submit(_validate_single_key, key, validation_endpoint, timeout_seconds): key 
+                executor.submit(KeyValidator._validate_single_key, key, validation_endpoint, timeout_seconds): key 
                 for key in keys_to_validate
             }
             
             for future in concurrent.futures.as_completed(future_to_key):
                 try:
-                    key, is_valid, status_info = future.result()
+                    result = future.result()
                     
                     # 更新数据库状态（批量检查也不统计使用次数）
-                    _update_key_status_in_thread(key.id, status_info, max_failed_count)
+                    KeyValidator._update_key_status_from_result(result, max_failed_count)
                     
                     # 准备返回结果
-                    if status_info == "exhausted":
-                        status_str, message_str = "exhausted", "Validation failed: 429 - Too Many Requests"
-                    elif status_info == "valid":
-                        status_str, message_str = "valid", "Key is valid."
-                    else:
-                        status_str, message_str = "error", f"Validation failed: {status_info}"
-                    
                     results.append({
-                        "key_id": key.id,
-                        "key_value": key.key_value,
-                        "status": status_str,
-                        "message": message_str,
+                        "key_id": result.key.id,
+                        "key_value": result.key.key_value,
+                        "status": result.status_str,
+                        "message": result.display_message,
                     })
                     
                     # 更新任务进度（如果提供了task_id）

@@ -91,6 +91,7 @@
         "expired": "已过期",
         "exhausted": "已耗尽",
         "error": "错误",
+        "timeout": "超时",
         "description": "描述",
         "usageCount": "使用次数",
         "failedCount": "失败次数",
@@ -155,7 +156,14 @@
         "failedToDeleteKeys": "删除选中的API密钥失败。",
         "pleaseSelectKeysToCheck": "请选择要检查的API密钥。",
         "bulkCheckCompleted": "批量检查完成。",
+        "bulkCheckTaskCreated": "批量检测任务已创建",
         "failedToBulkCheck": "批量检查API密钥失败。",
+        "validation": {
+            "keyIsValid": "密钥有效",
+            "tooManyRequests": "请求过于频繁 (429)",
+            "timeoutTemporary": "验证超时，通常是临时性的",
+            "validationFailed": "验证失败"
+        },
         "keyIsValid": "API密钥有效！",
         "keyIsInvalid": "API密钥无效：{{message}}",
         "failedToCheckKey": "检查API密钥失败：{{message}}",

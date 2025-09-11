@@ -613,6 +613,15 @@ async def openai_chat_completions(request: Request, db: db_dependency):
 
     except httpx.RequestError as exc:
       logger.error(f"请求错误: {exc}", exc_info=True)
+      # 特殊处理 AbortError
+      if "AbortError" in str(exc) or "signal is aborted" in str(exc):
+        logger.warning(f"请求被中断 (AbortError): {exc}")
+        if 'api_key_obj' in locals():
+          handler.key_manager.update_key_usage(db, api_key_obj, False, "timeout")
+        raise HTTPException(
+          status_code=status.HTTP_408_REQUEST_TIMEOUT,
+          detail="Request was aborted or timed out. Please try again.",
+        )
       if 'api_key_obj' in locals():
         handler.key_manager.update_key_usage(db, api_key_obj, False, "error")
       raise HTTPException(

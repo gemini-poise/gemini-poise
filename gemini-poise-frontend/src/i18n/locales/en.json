@@ -91,6 +91,7 @@
         "expired": "Expired",
         "exhausted": "Exhausted",
         "error": "Error",
+        "timeout": "Timeout",
         "description": "Description",
         "usageCount": "Usage Count",
         "failedCount": "Failed Count",
@@ -155,7 +156,14 @@
         "failedToDeleteKeys": "Failed to delete selected API Key(s).",
         "pleaseSelectKeysToCheck": "Please select API Keys to check.",
         "bulkCheckCompleted": "Bulk check completed successfully.",
+        "bulkCheckTaskCreated": "Bulk check task created successfully",
         "failedToBulkCheck": "Failed to bulk check API keys.",
+        "validation": {
+            "keyIsValid": "Key is valid",
+            "tooManyRequests": "Too Many Requests (429)",
+            "timeoutTemporary": "Validation timed out, usually temporary",
+            "validationFailed": "Validation failed"
+        },
         "keyIsValid": "API Key is valid!",
         "keyIsInvalid": "API Key is invalid: {{message}}",
         "failedToCheckKey": "Failed to check API key: {{message}}",

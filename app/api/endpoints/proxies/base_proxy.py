@@ -1,9 +1,6 @@
-import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional, Dict
-
 import httpx
 from fastapi import Request, HTTPException, status
 from fastapi.responses import StreamingResponse, Response
@@ -14,9 +11,6 @@ from ....models.models import ApiCallLog
 
 logger = logging.getLogger(__name__)
 
-# 线程池用于异步处理缓存失效等非关键操作
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="proxy_bg_")
-
 # 公共常量
 DEFAULT_TIMEOUT = 60.0
 DEFAULT_MAX_FAILED_COUNT = 3
@@ -26,89 +20,131 @@ DEFAULT_TOP_K = 40
 FALLBACK_MODEL = "gemini-1.5-flash"
 CHUNK_SIZE = 8192
 
+# HTTP 超时配置
+class TimeoutConfig:
+    """HTTP 超时配置类"""
+    CONNECT = 15.0  # 连接超时
+    READ = 120.0    # 读取超时
+    WRITE = 60.0    # 写入超时
+    POOL = 10.0     # 连接池超时
+
+# HTTP 连接限制配置
+class LimitsConfig:
+    """HTTP 连接限制配置类"""
+    MAX_KEEPALIVE_CONNECTIONS = 20
+    MAX_CONNECTIONS = 100
+    KEEPALIVE_EXPIRY = 60.0
+
 
 class ProxyError(Exception):
-  """代理处理异常基类"""
-
-  def __init__(self, status_code: int, detail: str, original_error: Optional[Exception] = None):
-    self.status_code = status_code
-    self.detail = detail
-    self.original_error = original_error
-    super().__init__(detail)
+    """代理处理异常基类"""
+    
+    def __init__(self, status_code: int, detail: str, original_error: Optional[Exception] = None):
+        self.status_code = status_code
+        self.detail = detail
+        self.original_error = original_error
+        super().__init__(detail)
+    
+    def __str__(self) -> str:
+        return f"ProxyError({self.status_code}): {self.detail}"
+    
+    def __repr__(self) -> str:
+        return f"ProxyError(status_code={self.status_code}, detail='{self.detail}')"
 
 
 class ConfigManager:
-  """配置管理器 - 统一处理各种配置获取"""
+    """配置管理器 - 统一处理各种配置获取"""
+    
+    @staticmethod
+    def get_target_url(db: Session) -> str:
+        """获取目标 API URL"""
+        try:
+            config = crud.config.get_config_by_key(db, "target_api_url")
+            if not config or not config.value:
+                raise ProxyError(503, "目标 Gemini API URL 未配置，请在配置表中添加 'target_api_url'。")
+            return config.value.rstrip("/")
+        except Exception as e:
+            logger.error(f"Failed to get target URL: {e}")
+            raise ProxyError(503, "配置获取失败")
 
-  @staticmethod
-  def get_target_url(db) -> str:
-    """获取目标 API URL"""
-    config = crud.config.get_config_by_key(db, "target_api_url")
-    if not config or not config.value:
-      raise ProxyError(503, "目标 Gemini API URL 未配置，请在配置表中添加 'target_api_url'。")
-    return config.value.rstrip("/")
+    @staticmethod
+    def get_internal_api_token(db: Session) -> str:
+        """获取内部 API 令牌"""
+        try:
+            config = crud.config.get_config_by_key(db, "api_token")
+            if not config or not config.value:
+                raise ProxyError(503, "内部 API 令牌未配置。")
+            return config.value
+        except Exception as e:
+            logger.error(f"Failed to get internal API token: {e}")
+            raise ProxyError(503, "API 令牌配置获取失败")
 
-  @staticmethod
-  def get_internal_api_token(db) -> str:
-    """获取内部 API 令牌"""
-    config = crud.config.get_config_by_key(db, "api_token")
-    if not config or not config.value:
-      raise ProxyError(503, "内部 API 令牌未配置。")
-    return config.value
-
-  @staticmethod
-  def get_max_failed_count(db) -> int:
-    """获取最大失败次数配置"""
-    config_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
-    if not config_str:
-      return DEFAULT_MAX_FAILED_COUNT
-    try:
-      count = int(config_str)
-      return count if count >= 0 else DEFAULT_MAX_FAILED_COUNT
-    except ValueError:
-      logger.warning(f"Invalid max failed count format '{config_str}', using default {DEFAULT_MAX_FAILED_COUNT}")
-      return DEFAULT_MAX_FAILED_COUNT
+    @staticmethod
+    def get_max_failed_count(db: Session) -> int:
+        """获取最大失败次数配置"""
+        try:
+            config_str = crud.config.get_config_value(db, "key_validation_max_failed_count")
+            if not config_str:
+                return DEFAULT_MAX_FAILED_COUNT
+            
+            count = int(config_str)
+            if count < 0:
+                logger.warning(f"Invalid max failed count '{config_str}', using default {DEFAULT_MAX_FAILED_COUNT}")
+                return DEFAULT_MAX_FAILED_COUNT
+            return count
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid max failed count format: {e}, using default {DEFAULT_MAX_FAILED_COUNT}")
+            return DEFAULT_MAX_FAILED_COUNT
 
 
 class AuthValidator:
-  """认证验证器 - 统一处理各种认证验证"""
+    """认证验证器 - 统一处理各种认证验证"""
 
-  @staticmethod
-  def validate_internal_api_key(request: Request, expected_token: str) -> None:
-    """验证内部 API 密钥"""
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-      raise ProxyError(401, "无效或缺失的内部 API 密钥。")
+    @staticmethod
+    def validate_internal_api_key(request: Request, expected_token: str) -> None:
+        """验证内部 API 密钥"""
+        try:
+            auth_header = request.headers.get("Authorization", "")
+            if not auth_header.startswith("Bearer "):
+                raise ProxyError(401, "无效或缺失的内部 API 密钥。")
 
-    api_key = auth_header.replace("Bearer ", "")
-    if not api_key or api_key != expected_token:
-      raise ProxyError(401, "无效或缺失的内部 API 密钥。")
+            api_key = auth_header.replace("Bearer ", "", 1)  # 只替换第一个
+            if not api_key or api_key != expected_token:
+                raise ProxyError(401, "无效或缺失的内部 API 密钥。")
+        except ProxyError:
+            raise
+        except Exception as e:
+            logger.error(f"Authentication validation failed: {e}")
+            raise ProxyError(401, "认证验证失败")
 
 
 class KeyManager:
-  """API 密钥管理器 - 统一处理API密钥相关操作"""
+    """API 密钥管理器 - 统一处理API密钥相关操作"""
 
-  @staticmethod
-  def get_active_api_key(db):
-    """获取活跃的API密钥"""
-    try:
-      api_key = crud.api_keys.get_active_api_key_with_token_bucket(db)
-      if not api_key:
-        raise ProxyError(503, "没有可用的活跃目标 API 密钥。")
-      return api_key
-    except Exception as e:
-      logger.error(f"获取活跃API密钥失败: {e}")
-      raise ProxyError(503, "获取API密钥配置失败。")
+    @staticmethod
+    def get_active_api_key(db: Session):
+        """获取活跃的API密钥"""
+        try:
+            api_key = crud.api_keys.get_active_api_key_with_token_bucket(db)
+            if not api_key:
+                raise ProxyError(503, "没有可用的活跃目标 API 密钥。")
+            return api_key
+        except ProxyError:
+            raise
+        except Exception as e:
+            logger.error(f"获取活跃API密钥失败: {e}")
+            raise ProxyError(503, "获取API密钥配置失败。")
 
-  @staticmethod
-  def update_key_usage(db, api_key, success: bool, status_override: str = None) -> None:
-    """更新密钥使用状态"""
-    try:
-      max_failed_count = ConfigManager.get_max_failed_count(db)
-      update_key_status_based_on_response(db, api_key, success, max_failed_count, status_override)
-      record_api_call_log(db, api_key.id)
-    except Exception as e:
-      logger.error(f"更新密钥使用状态失败: {e}")
+    @staticmethod
+    def update_key_usage(db: Session, api_key, success: bool, status_override: Optional[str] = None) -> None:
+        """更新密钥使用状态"""
+        try:
+            max_failed_count = ConfigManager.get_max_failed_count(db)
+            update_key_status_based_on_response(db, api_key, success, max_failed_count, status_override)
+            record_api_call_log(db, api_key.id)
+        except Exception as e:
+            logger.error(f"更新密钥使用状态失败: {e}")
+            # 不抛出异常，避免影响主请求流程
 
 
 def _clean_response_headers(headers: Dict) -> Dict:
@@ -129,8 +165,8 @@ def _clean_response_headers(headers: Dict) -> Dict:
   return cleaned_headers
 
 
-def _async_invalidate_cache():
-  """异步执行缓存失效操作"""
+def _invalidate_cache():
+  """执行缓存失效操作"""
   try:
     from ....crud.api_keys import invalidate_active_api_keys_cache
     invalidate_active_api_keys_cache()
@@ -142,15 +178,15 @@ def _async_invalidate_cache():
 # 优化的 httpx 客户端配置，使用连接池和超时配置
 httpx_client = httpx.AsyncClient(
   timeout=httpx.Timeout(
-    connect=10.0,  # 连接超时
-    read=60.0,  # 读取超时
-    write=30.0,  # 写入超时
-    pool=5.0  # 连接池超时
+    connect=15.0,  # 连接超时 - 增加到15秒
+    read=120.0,  # 读取超时 - 增加到120秒匹配前端同步请求
+    write=60.0,  # 写入超时 - 增加到60秒
+    pool=10.0  # 连接池超时 - 增加到10秒
   ),
   limits=httpx.Limits(
     max_keepalive_connections=20,  # 最大保持连接数
     max_connections=100,  # 最大连接数
-    keepalive_expiry=30.0  # 连接保持时间
+    keepalive_expiry=60.0  # 连接保持时间 - 增加到60秒
   ),
   follow_redirects=True,
   http2=True  # 启用 HTTP/2 支持
@@ -223,11 +259,6 @@ def update_key_status_based_on_response(
     logger.warning("API key is None, skipping status update")
     return
 
-  # 保存原始状态以判断是否需要更新
-  original_status = api_key.status
-  original_failed_count = api_key.failed_count
-  original_usage_count = api_key.usage_count
-
   needs_db_update = False
   status_changed = False
 
@@ -287,11 +318,13 @@ def update_key_status_based_on_response(
       db.add(api_key)
       db.commit()
 
-      # 异步处理缓存失效，不阻塞主请求
+      # 同步处理缓存失效，避免事件循环问题
       if status_changed:
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(_executor, _async_invalidate_cache)
-        logger.debug(f"🔄 [CACHE] Scheduled async cache invalidation for key {api_key.id}")
+        try:
+          _invalidate_cache()
+          logger.debug(f"🔄 [CACHE] Invalidated cache for key {api_key.id}")
+        except Exception as cache_error:
+          logger.warning(f"⚠️ [CACHE] Failed to invalidate cache for key {api_key.id}: {cache_error}")
 
     except Exception as e:
       logger.error(f"Failed to update API key status: {e}")
