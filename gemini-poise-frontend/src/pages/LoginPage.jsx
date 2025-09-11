@@ -5,6 +5,7 @@ import {useTranslation} from 'react-i18next';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import {useLogin} from '../hooks/useLogin';
 import useBingWallpaper from '../hooks/useBingWallpaper';
+import { useTheme } from '../contexts/ThemeContext';
 
 const {Title} = Typography;
 const {Content} = Layout;
@@ -12,6 +13,8 @@ const {Content} = Layout;
 const LoginPage = () => {
   const [form] = Form.useForm();
   const {t} = useTranslation();
+  const { currentTheme } = useTheme();
+  const isDark = currentTheme === 'dark';
   const {loading, handleLogin, rememberedUsername} = useLogin(form, t);
   const {wallpaperUrl, isLoading: wallpaperLoading} = useBingWallpaper();
 
@@ -89,7 +92,7 @@ const LoginPage = () => {
       className="h-screen flex flex-col justify-center items-center bg-gray-100 relative" 
       style={backgroundStyle}
     >
-      {/* Light frosted glass overlay for the entire screen */}
+      {/* Frosted glass overlay for the entire screen */}
       <div 
         className="absolute inset-0 z-0"
         style={{

@@ -1,18 +1,46 @@
 @import "tailwindcss";
 
 :root {
+  /* Typography */
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Color scheme */
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  /* CSS Custom Properties for Glassmorphism */
+  --glass-bg-light: rgba(255, 255, 255, 0.15);
+  --glass-bg-light-hover: rgba(255, 255, 255, 0.25);
+  --glass-bg-light-strong: rgba(255, 255, 255, 0.7);
+  --glass-bg-dark: rgba(255, 255, 255, 0.08);
+  --glass-bg-dark-hover: rgba(255, 255, 255, 0.12);
+  --glass-bg-dark-strong: rgba(15, 23, 42, 0.85);
+  
+  --glass-border-light: rgba(255, 255, 255, 0.6);
+  --glass-border-dark: rgba(255, 255, 255, 0.2);
+  
+  --glass-blur: blur(16px);
+  --glass-blur-strong: blur(24px);
+  --glass-saturate: saturate(180%);
+  
+  --glass-shadow-light: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --glass-shadow-dark: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  
+  --primary-blue: rgba(59, 130, 246, 0.8);
+  --primary-blue-hover: rgba(59, 130, 246, 0.9);
+  --primary-blue-focus: rgba(59, 130, 246, 0.15);
+  
+  --text-light: #374151;
+  --text-dark: #e2e8f0;
+  --text-muted-light: #6b7280;
+  --text-muted-dark: #94a3b8;
 }
 
 a {
@@ -28,6 +56,28 @@ a:hover {
 body {
   margin: 0;
   width: 100vw;
+  background: linear-gradient(135deg, 
+    rgba(219, 234, 254, 1) 0%,
+    rgba(147, 197, 253, 1) 25%,
+    rgba(96, 165, 250, 1) 50%,
+    rgba(59, 130, 246, 1) 75%,
+    rgba(37, 99, 235, 1) 100%
+  );
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Dark mode background */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(135deg,
+      rgba(15, 23, 42, 1) 0%,
+      rgba(30, 41, 59, 1) 25%,
+      rgba(51, 65, 85, 1) 50%,
+      rgba(71, 85, 105, 1) 75%,
+      rgba(100, 116, 139, 1) 100%
+    );
+  }
 }
 
 h1 {
@@ -74,22 +124,1117 @@ button:focus-visible {
 
 /* Styles for API Key table rows based on status */
 .row-error td {
-  background-color: #d98e8e !important;
-  color: #f3eeee
+  background: rgba(239, 68, 68, 0.9) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
 }
 
 .row-exhausted td {
-  background-color: #fff1f0 !important;
+  background: rgba(251, 146, 60, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #92400e !important;
+  font-weight: 500 !important;
 }
 
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
   .row-error td {
-    background-color: #9f1774 !important;
+    background: rgba(220, 38, 127, 0.85) !important;
+    color: #fce7f3 !important;
   }
 
   .row-exhausted td {
-    background-color: #5c0011 !important;
+    background: rgba(185, 28, 28, 0.8) !important;
+    color: #fecaca !important;
   }
+}
 
+/* Modal Components */
+.glass-modal {
+  backdrop-filter: blur(28px) saturate(220%) !important;
+  background: var(--glass-bg-light-strong) !important;
+  border: 1px solid var(--glass-border-light) !important;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.15), 0 12px 32px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 2px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(255, 255, 255, 0.3) !important;
+  border-radius: 20px !important;
+}
+
+.glass-modal-header {
+  backdrop-filter: blur(20px) var(--glass-saturate) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 16px 24px !important;
+}
+
+.glass-modal-title {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+}
+
+.glass-modal-close {
+  color: var(--text-muted-light) !important;
+  top: 16px !important;
+  right: 16px !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+}
+
+.glass-modal-close:hover {
+  color: var(--text-light) !important;
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.glass-modal-mask {
+  backdrop-filter: blur(8px) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Apply to Ant Design modals */
+.ant-modal-content {
+  backdrop-filter: blur(28px) saturate(220%) !important;
+  background: var(--glass-bg-light-strong) !important;
+  border: 1px solid var(--glass-border-light) !important;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.15), 0 12px 32px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05), inset 0 2px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(255, 255, 255, 0.3) !important;
+  border-radius: 20px !important;
+}
+
+.ant-modal .ant-modal-header {
+  backdrop-filter: blur(20px) var(--glass-saturate) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 16px 24px !important;
+}
+
+.ant-modal .ant-modal-header .ant-modal-title {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+}
+
+.ant-modal .ant-modal-close {
+  color: var(--text-muted-light) !important;
+  top: 16px !important;
+  right: 16px !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  font-size: 16px !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-modal .ant-modal-close:hover {
+  color: var(--text-light) !important;
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.ant-modal .ant-modal-close .ant-modal-close-x {
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+  font-size: 16px !important;
+}
+
+.ant-modal-mask {
+  backdrop-filter: blur(8px) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Message Toast 毛玻璃效果 */
+.ant-message .ant-message-notice .ant-message-notice-content {
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  border-radius: 12px !important;
+  color: #374151 !important;
+}
+
+.ant-message .ant-message-notice .ant-message-notice-content .anticon {
+  color: inherit !important;
+}
+
+.ant-message .ant-message-notice .ant-message-notice-content .ant-message-custom-content {
+  color: #374151 !important;
+}
+
+/* Notification 毛玻璃效果 */
+.ant-notification .ant-notification-notice {
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  border-radius: 12px !important;
+}
+
+.ant-notification .ant-notification-notice .ant-notification-notice-message {
+  color: #374151 !important;
+  font-weight: 500 !important;
+}
+
+.ant-notification .ant-notification-notice .ant-notification-notice-description {
+  color: #6b7280 !important;
+}
+
+/* 暗色模式下的毛玻璃效果 */
+[data-theme="dark"] .ant-modal-content {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 
+              0 8px 24px rgba(0, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-modal .ant-modal-header {
+  background: rgba(30, 41, 59, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-modal .ant-modal-header .ant-modal-title {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .ant-modal .ant-modal-close {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .ant-modal .ant-modal-close:hover {
+  color: #f1f5f9 !important;
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .ant-message .ant-message-notice .ant-message-notice-content {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .ant-message .ant-message-notice .ant-message-notice-content .ant-message-custom-content {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .ant-notification .ant-notification-notice {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-notification .ant-notification-notice .ant-notification-notice-message {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .ant-notification .ant-notification-notice .ant-notification-notice-description {
+  color: #94a3b8 !important;
+}
+
+/* Base Glassmorphism Classes */
+.glass-input {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  background: var(--glass-bg-light) !important;
+  border: 1px solid var(--glass-border-light) !important;
+  box-shadow: var(--glass-shadow-light) !important;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+  line-height: 1.5 !important;
+  color: var(--text-light) !important;
+  transition: all 0.2s ease !important;
+}
+
+.glass-input:focus,
+.glass-input:hover {
+  background: var(--glass-bg-light-hover) !important;
+  border-color: rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 3px var(--primary-blue-focus), 0 6px 20px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+.glass-input::placeholder {
+  color: rgba(107, 114, 128, 0.7) !important;
+}
+
+/* Input Controls */
+.ant-input, .ant-input-password .ant-input {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  background: var(--glass-bg-light) !important;
+  border: 1px solid var(--glass-border-light) !important;
+  box-shadow: var(--glass-shadow-light) !important;
+  border-radius: 10px !important;
+  padding: 8px 12px !important;
+  line-height: 1.5 !important;
+  color: var(--text-light) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-input:focus, .ant-input-password .ant-input:focus,
+.ant-input:hover, .ant-input-password .ant-input:hover {
+  background: var(--glass-bg-light-hover) !important;
+  border-color: rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 3px var(--primary-blue-focus), 0 6px 20px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Select Dropdown Glassmorphism */
+.ant-select .ant-select-selector {
+  backdrop-filter: blur(20px) saturate(200%) !important;
+  background: var(--glass-bg-light) !important;
+  border: 1px solid var(--glass-border-light) !important;
+  box-shadow: var(--glass-shadow-light) !important;
+  border-radius: 10px !important;
+  height: 39px !important;
+  margin-top: -3px !important;
+}
+
+.ant-select:hover .ant-select-selector,
+.ant-select-focused .ant-select-selector {
+  background: var(--glass-bg-light-hover) !important;
+  border-color: rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 3px var(--primary-blue-focus), 0 6px 20px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+.ant-select-dropdown {
+  backdrop-filter: var(--glass-blur-strong) saturate(200%) !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 8px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  border-radius: 12px !important;
+}
+
+/* Collapse Panel Glassmorphism - Enhanced Header Contrast */
+.ant-collapse {
+  background: rgba(255, 255, 255, 0.4) !important;
+  backdrop-filter: blur(12px) saturate(1.3) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  overflow: hidden !important;
+}
+
+.ant-collapse > .ant-collapse-item {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.ant-collapse > .ant-collapse-item:last-child {
+  border-bottom: none !important;
+}
+
+.ant-collapse-header {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.85) 0%, 
+    rgba(248, 250, 252, 0.8) 100%) !important;
+  backdrop-filter: blur(12px) saturate(150%) !important;
+  border-radius: 0 !important;
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9),
+              0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1) !important;
+  padding: 16px 24px !important;
+}
+
+.ant-collapse-content {
+  background: rgba(255, 255, 255, 0.25) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+  border-top: none !important;
+}
+
+.ant-collapse-content-box {
+  background: transparent !important;
+  padding: 20px 24px !important;
+}
+
+.ant-select-item {
+  border-radius: 6px !important;
+  margin: 2px 4px !important;
+}
+
+/* 修复语言选择器图标和文字对齐 */
+.ant-select-selection-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  line-height: 1.4 !important;
+}
+
+.ant-select-arrow {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.ant-select-item-option-selected {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #1e40af !important;
+}
+
+.ant-select-item-option:hover {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+/* Button Base Classes */
+.glass-btn {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  border-radius: 10px !important;
+  height: 40px !important;
+  padding: 8px 15px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.glass-btn-secondary {
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  color: var(--text-light) !important;
+}
+
+.glass-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  transform: translateY(-1px) !important;
+}
+
+.glass-btn-primary {
+  background: var(--primary-blue) !important;
+  border: 1px solid rgba(59, 130, 246, 0.9) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25), 0 2px 4px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.glass-btn-primary:hover {
+  background: var(--primary-blue-hover) !important;
+  border-color: rgba(59, 130, 246, 1) !important;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3), 0 2px 6px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Apply to Ant Design buttons */
+.ant-btn:not(.ant-btn-primary) {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  border-radius: 10px !important;
+  height: 40px !important;
+  padding: 8px 15px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  color: var(--text-light) !important;
+}
+
+.ant-btn:not(.ant-btn-primary):hover {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  transform: translateY(-1px) !important;
+}
+
+.ant-btn-primary {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  border-radius: 10px !important;
+  height: 40px !important;
+  padding: 8px 15px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+  background: var(--primary-blue) !important;
+  border: 1px solid rgba(59, 130, 246, 0.9) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25), 0 2px 4px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.ant-btn-primary:hover {
+  background: var(--primary-blue-hover) !important;
+  border-color: rgba(59, 130, 246, 1) !important;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3), 0 2px 6px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Table Glassmorphism */
+.ant-table-wrapper .ant-table {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  background: var(--glass-bg-light-strong) !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+.ant-table-thead > tr > th {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: blur(12px) var(--glass-saturate) !important;
+}
+
+.ant-table-tbody > tr > td {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* 确保状态行样式优先级 */
+.ant-table-tbody > tr.row-error > td {
+  background: rgba(239, 68, 68, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+.ant-table-tbody > tr.row-error:hover > td {
+  background: rgba(239, 68, 68, 0.9) !important;
+  color: #ffffff !important;
+}
+
+.ant-table-tbody > tr.row-exhausted > td {
+  background: rgba(251, 146, 60, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+.ant-table-tbody > tr.row-exhausted:hover > td {
+  background: rgba(251, 146, 60, 0.95) !important;
+  color: #ffffff !important;
+}
+
+.ant-table-wrapper .ant-table-container {
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+.ant-table-wrapper .ant-table-container .ant-table-content table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+/* Card Glassmorphism - Enhanced Header Contrast */
+.ant-card {
+  backdrop-filter: var(--glass-blur) var(--glass-saturate) !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  border-radius: 12px !important;
+  transition: all 0.3s ease !important;
+  overflow: hidden !important;
+}
+
+.ant-card:hover,
+.ant-card.ant-card-hoverable:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  transform: translateY(-2px) !important;
+}
+
+.ant-card-head {
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.9) 100%) !important;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.12) !important;
+  backdrop-filter: blur(12px) saturate(150%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8),
+              0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  margin: -1px -1px 0 -1px !important;
+  padding: 16px 24px !important;
+}
+
+.ant-card-body {
+  background: rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+}
+
+/* Breadcrumb Glassmorphism */
+.ant-breadcrumb {
+  padding: 10px 18px !important;
+  backdrop-filter: var(--glass-blur) saturate(200%) !important;
+  background: var(--glass-bg-light-strong) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  font-weight: 500 !important;
+}
+
+/* Tag 毛玻璃效果 */
+.ant-tag {
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+}
+
+/* 强制覆盖绿色标签样式 */
+.ant-tag-green,
+.ant-tag[color="green"] {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #166534 !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+/* Success Tag - 使用更高优先级 */
+.ant-tag.ant-tag-success,
+.ant-tag.ant-tag-green,
+.ant-tag[color="green"],
+span.ant-tag[color="green"] {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #166534 !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Warning Tag */
+.ant-tag.ant-tag-warning,
+.ant-tag.ant-tag-yellow,
+.ant-tag[color="yellow"] {
+  background: rgba(251, 146, 60, 0.15) !important;
+  color: #92400e !important;
+  border-color: rgba(251, 146, 60, 0.3) !important;
+}
+
+/* Error Tag */
+.ant-tag.ant-tag-error,
+.ant-tag.ant-tag-red,
+.ant-tag[color="red"] {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #dc2626 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+/* Default Tag */
+.ant-tag:not(.ant-tag-success):not(.ant-tag-warning):not(.ant-tag-error):not(.ant-tag-green) {
+  background: rgba(255, 255, 255, 0.3) !important;
+  color: #374151 !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* DatePicker 日期选择器毛玻璃效果 */
+.ant-picker {
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  border-radius: 8px !important;
+}
+
+.ant-picker:hover,
+.ant-picker-focused {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1), 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.ant-picker-input > input {
+  background: transparent !important;
+  color: #374151 !important;
+}
+
+.ant-picker-input > input::placeholder {
+  color: #9ca3af !important;
+}
+
+/* DatePicker 下拉面板毛玻璃效果 */
+.ant-picker-dropdown .ant-picker-panel-container {
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  border-radius: 12px !important;
+}
+
+.ant-picker-panel {
+  background: transparent !important;
+}
+
+.ant-picker-header {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.ant-picker-header button {
+  color: #374151 !important;
+}
+
+.ant-picker-content th,
+.ant-picker-content td {
+  color: #374151 !important;
+}
+
+.ant-picker-cell:hover .ant-picker-cell-inner {
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+
+.ant-picker-cell-selected .ant-picker-cell-inner {
+  background: rgba(59, 130, 246, 0.8) !important;
+  color: white !important;
+}
+
+.ant-picker-today .ant-picker-cell-inner {
+  border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Progress 进度条毛玻璃效果 */
+.ant-progress-circle .ant-progress-text {
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+}
+
+.ant-progress-inner {
+  backdrop-filter: blur(8px) !important;
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 50% !important;
+}
+
+/* 通用文本颜色调整 */
+.ant-modal-body {
+  color: #374151 !important;
+}
+
+/* 更强的Modal头部样式 */
+div.ant-modal div.ant-modal-content div.ant-modal-header {
+  backdrop-filter: blur(24px) saturate(200%) !important;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.9) 0%, 
+    rgba(248, 250, 252, 0.85) 50%,
+    rgba(241, 245, 249, 0.9) 100%) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.9),
+              inset 0 -1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+div.ant-modal div.ant-modal-content div.ant-modal-header div.ant-modal-title {
+  color: #4b5563 !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+  font-size: 18px !important;
+}
+
+div.ant-modal button.ant-modal-close {
+  color: #9ca3af !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  top: 16px !important;
+  right: 22px !important;
+  position: absolute !important;
+}
+
+div.ant-modal button.ant-modal-close:hover {
+  color: #6b7280 !important;
+  background-color: rgba(0, 0, 0, 0.06) !important;
+  transform: none !important;
+}
+
+div.ant-modal button.ant-modal-close .ant-modal-close-x {
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+
+/* 暗色模式下的表单控件毛玻璃效果 */
+/* Dark theme glassmorphism */
+.glass-input-dark {
+  background: var(--glass-bg-dark) !important;
+  border: 1px solid var(--glass-border-dark) !important;
+  box-shadow: var(--glass-shadow-dark) !important;
+  color: var(--text-dark) !important;
+}
+
+.glass-input-dark:focus,
+.glass-input-dark:hover {
+  background: var(--glass-bg-dark-hover) !important;
+  border-color: rgba(59, 130, 246, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.glass-input-dark::placeholder {
+  color: rgba(148, 163, 184, 0.7) !important;
+}
+
+/* Apply dark theme to inputs */
+[data-theme="dark"] .ant-input,
+[data-theme="dark"] .ant-input-password .ant-input {
+  background: var(--glass-bg-dark) !important;
+  border: 1px solid var(--glass-border-dark) !important;
+  box-shadow: var(--glass-shadow-dark) !important;
+  color: var(--text-dark) !important;
+  padding: 8px 12px !important;
+  line-height: 1.5 !important;
+}
+
+[data-theme="dark"] .ant-input:focus,
+[data-theme="dark"] .ant-input-password .ant-input:focus,
+[data-theme="dark"] .ant-input:hover,
+[data-theme="dark"] .ant-input-password .ant-input:hover {
+  background: var(--glass-bg-dark-hover) !important;
+  border-color: rgba(59, 130, 246, 0.6) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .ant-input::placeholder {
+  color: rgba(148, 163, 184, 0.7) !important;
+}
+
+[data-theme="dark"] .ant-select .ant-select-selector {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 
+              0 1px 4px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  color: #e2e8f0 !important;
+  height: 39px !important;
+  margin-top: -3px !important;
+}
+
+[data-theme="dark"] .ant-select:hover .ant-select-selector,
+[data-theme="dark"] .ant-select-focused .ant-select-selector {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(59, 130, 246, 0.6) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 
+              0 6px 20px rgba(0, 0, 0, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .ant-select-dropdown {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6),
+              0 8px 16px rgba(0, 0, 0, 0.4),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-select-item-option-selected {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .ant-select-item-option:hover {
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+[data-theme="dark"] .ant-btn:not(.ant-btn-primary) {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  color: #f1f5f9 !important;
+  height: 40px !important;
+  padding: 8px 15px !important;
+}
+
+[data-theme="dark"] .ant-btn:not(.ant-btn-primary):hover {
+  background: rgba(51, 65, 85, 0.8) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 暗色模式主要按钮毛玻璃效果 */
+[data-theme="dark"] .ant-btn-primary {
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  background: rgba(59, 130, 246, 0.8) !important;
+  border: 1px solid rgba(59, 130, 246, 0.9) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3), 
+              0 2px 4px rgba(59, 130, 246, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  border-radius: 10px !important;
+  height: 40px !important;
+  padding: 8px 15px !important;
+  color: white !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .ant-btn-primary:hover {
+  background: rgba(59, 130, 246, 0.9) !important;
+  border-color: rgba(59, 130, 246, 1) !important;
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4), 
+              0 2px 6px rgba(59, 130, 246, 0.25),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
+}
+
+[data-theme="dark"] .ant-table-wrapper .ant-table {
+  background: rgba(30, 41, 59, 0.7) !important;
+}
+
+[data-theme="dark"] .ant-table-thead > tr > th {
+  background: rgba(51, 65, 85, 0.8) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr > td {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr:hover > td {
+  background: rgba(51, 65, 85, 0.8) !important;
+}
+
+/* 暗色模式下的状态行样式 */
+[data-theme="dark"] .ant-table-tbody > tr.row-error > td {
+  background: rgba(153, 27, 27, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr.row-error:hover > td {
+  background: rgba(153, 27, 27, 0.9) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr.row-exhausted > td {
+  background: rgba(194, 65, 12, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .ant-table-tbody > tr.row-exhausted:hover > td {
+  background: rgba(194, 65, 12, 0.9) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .ant-table-wrapper .ant-table-container {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Dark Theme Card - Enhanced Header Contrast */
+[data-theme="dark"] .ant-card {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.3s ease !important;
+  overflow: hidden !important;
+}
+
+[data-theme="dark"] .ant-card:hover,
+[data-theme="dark"] .ant-card.ant-card-hoverable:hover {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(-2px) !important;
+}
+
+[data-theme="dark"] .ant-card-head {
+  background: linear-gradient(135deg, 
+    rgba(51, 65, 85, 0.95) 0%, 
+    rgba(30, 41, 59, 0.9) 100%) !important;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(12px) saturate(150%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+              0 1px 3px rgba(0, 0, 0, 0.3) !important;
+  margin: -1px -1px 0 -1px !important;
+  padding: 16px 24px !important;
+}
+
+[data-theme="dark"] .ant-card-body {
+  background: rgba(15, 23, 42, 0.4) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+}
+
+[data-theme="dark"] .ant-breadcrumb {
+  padding: 10px 18px !important;
+  backdrop-filter: blur(16px) saturate(200%) !important;
+  background: rgba(30, 41, 59, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 
+              0 2px 4px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  font-weight: 500 !important;
+}
+
+/* 暗色模式下的 Tag 毛玻璃效果 */
+[data-theme="dark"] .ant-tag {
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 暗色模式下的 Success Tag - 使用更高优先级 */
+[data-theme="dark"] .ant-tag.ant-tag-success,
+[data-theme="dark"] .ant-tag.ant-tag-green,
+[data-theme="dark"] .ant-tag[color="green"],
+[data-theme="dark"] span.ant-tag[color="green"] {
+  background: rgba(34, 197, 94, 0.25) !important;
+  color: #86efac !important;
+  border-color: rgba(34, 197, 94, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* 暗色模式下的 Warning Tag */
+[data-theme="dark"] .ant-tag.ant-tag-warning,
+[data-theme="dark"] .ant-tag.ant-tag-yellow,
+[data-theme="dark"] .ant-tag[color="yellow"] {
+  background: rgba(251, 146, 60, 0.25) !important;
+  color: #fdba74 !important;
+  border-color: rgba(251, 146, 60, 0.5) !important;
+}
+
+/* 暗色模式下的 Error Tag */
+[data-theme="dark"] .ant-tag.ant-tag-error,
+[data-theme="dark"] .ant-tag.ant-tag-red,
+[data-theme="dark"] .ant-tag[color="red"] {
+  background: rgba(236, 72, 153, 0.25) !important;
+  color: #f9a8d4 !important;
+  border-color: rgba(236, 72, 153, 0.5) !important;
+}
+
+/* 暗色模式下的 Default Tag */
+[data-theme="dark"] .ant-tag:not(.ant-tag-success):not(.ant-tag-warning):not(.ant-tag-error):not(.ant-tag-green) {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 暗色模式下的 DatePicker 日期选择器毛玻璃效果 */
+[data-theme="dark"] .ant-picker {
+  background: rgba(51, 65, 85, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+[data-theme="dark"] .ant-picker:hover,
+[data-theme="dark"] .ant-picker-focused {
+  background: rgba(51, 65, 85, 0.8) !important;
+  border-color: rgba(59, 130, 246, 0.7) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2), 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .ant-picker-input > input {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .ant-picker-input > input::placeholder {
+  color: #64748b !important;
+}
+
+[data-theme="dark"] .ant-picker-dropdown .ant-picker-panel-container {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-picker-header {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-picker-header button {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .ant-picker-content th,
+[data-theme="dark"] .ant-picker-content td {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .ant-picker-cell:hover .ant-picker-cell-inner {
+  background: rgba(59, 130, 246, 0.2) !important;
+}
+
+[data-theme="dark"] .ant-picker-cell-selected .ant-picker-cell-inner {
+  background: rgba(59, 130, 246, 0.8) !important;
+  color: white !important;
+}
+
+[data-theme="dark"] .ant-picker-today .ant-picker-cell-inner {
+  border: 1px solid rgba(59, 130, 246, 0.7) !important;
+}
+
+[data-theme="dark"] .ant-progress-circle .ant-progress-text {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .ant-progress-inner {
+  background: rgba(30, 41, 59, 0.3) !important;
+}
+
+[data-theme="dark"] .ant-modal-body {
+  color: #e2e8f0 !important;
+}
+
+/* 暗色模式下更强的Modal头部样式 */
+[data-theme="dark"] div.ant-modal div.ant-modal-content div.ant-modal-header {
+  background: linear-gradient(135deg, 
+    rgba(15, 23, 42, 0.95) 0%, 
+    rgba(30, 41, 59, 0.95) 100%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] div.ant-modal div.ant-modal-content div.ant-modal-header div.ant-modal-title {
+  color: #e2e8f0 !important;
+  text-shadow: none !important;
+  font-size: 18px !important;
+}
+
+[data-theme="dark"] div.ant-modal button.ant-modal-close {
+  color: #94a3b8 !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  top: 16px !important;
+  right: 22px !important;
+  position: absolute !important;
+}
+
+[data-theme="dark"] div.ant-modal button.ant-modal-close:hover {
+  color: #e2e8f0 !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  transform: none !important;
+}
+
+[data-theme="dark"] div.ant-modal button.ant-modal-close .ant-modal-close-x {
+  font-size: 16px !important;
+}
+
+/* Dark Theme Collapse Panel - Enhanced Header Contrast */
+[data-theme="dark"] .ant-collapse {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(12px) saturate(1.3) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  overflow: hidden !important;
+}
+
+[data-theme="dark"] .ant-collapse > .ant-collapse-item {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-theme="dark"] .ant-collapse > .ant-collapse-item:last-child {
+  border-bottom: none !important;
+}
+
+[data-theme="dark"] .ant-collapse-header {
+  background: linear-gradient(135deg, 
+    rgba(51, 65, 85, 0.9) 0%, 
+    rgba(30, 41, 59, 0.85) 100%) !important;
+  backdrop-filter: blur(12px) saturate(150%) !important;
+  border-radius: 0 !important;
+  color: #f1f5f9 !important;
+  font-weight: 600 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
+              0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.15) !important;
+  padding: 16px 24px !important;
+}
+
+[data-theme="dark"] .ant-collapse-content {
+  background: rgba(15, 23, 42, 0.3) !important;
+  backdrop-filter: blur(8px) saturate(120%) !important;
+  border-top: none !important;
+}
+
+[data-theme="dark"] .ant-collapse-content-box {
+  background: transparent !important;
+  padding: 20px 24px !important;
 }

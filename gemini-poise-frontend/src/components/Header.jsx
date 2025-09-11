@@ -1,4 +1,4 @@
-import { Layout, Typography, Space, Switch, theme, Modal, Form, Input, Button, message } from 'antd';
+import { Layout, Typography, Space, Switch, Modal, Form, Input, Button, message } from 'antd';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { changePassword } from '../api/api';
@@ -25,14 +25,15 @@ const Header = () => {
   const [passwordForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  const {
-    token: { colorPrimary },
-  } = theme.useToken();
-
   const headerStyle = {
     display: 'flex',
     alignItems: 'center',
-    background: isDark ? '#001529' : colorPrimary,
+    background: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.1)',
+    boxShadow: isDark 
+      ? '0 2px 8px rgba(0, 0, 0, 0.4)' 
+      : '0 2px 8px rgba(0, 0, 0, 0.1)',
     padding: '0 24px'
   };
 
@@ -71,19 +72,19 @@ const Header = () => {
     <>
       <AntHeader style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', marginRight: 'auto' }}>
-          <Title level={4} style={{ color: 'white', margin: 0 }}>
+          <Title level={4} style={{ color: isDark ? 'white' : '#1f2937', margin: 0 }}>
             {t('header.title')}
           </Title>
         </div>
 
         <Space size="middle">
-          <LanguageSwitcher style={{ color: 'white' }} />
+          <LanguageSwitcher style={{ color: isDark ? 'white' : '#1f2937' }} />
 
           <a
             href="https://github.com/gemini-poise/gemini-poise"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'white' }}
+            style={{ color: isDark ? 'white' : '#1f2937' }}
           >
             <GithubOutlined style={{ fontSize: '20px' }} />
           </a>
@@ -99,7 +100,7 @@ const Header = () => {
             <a
               onClick={handleUsernameClick}
               style={{ 
-                color: 'white',
+                color: isDark ? 'white' : '#1f2937',
                 cursor: 'pointer',
                 textDecoration: 'none'
               }}
@@ -113,7 +114,7 @@ const Header = () => {
 
           <a
             onClick={handleLogout}
-            style={{ color: 'white' }}
+            style={{ color: isDark ? 'white' : '#1f2937' }}
           >
             <Space>
               <LogoutOutlined />

@@ -17,7 +17,6 @@ const LanguageSwitcher = ({ style }) => {
             onChange={handleLanguageChange}
             style={{ width: 120, ...style }}
             suffixIcon={<GlobalOutlined />}
-            size="small"
         >
             <Option value="en">{t('language.english')}</Option>
             <Option value="zh">{t('language.chinese')}</Option>

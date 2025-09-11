@@ -17,10 +17,6 @@ const Sidebar = () => {
   const { t } = useTranslation();
   const isDark = currentTheme === 'dark';
 
-  const {
-    token: { colorBgContainer },
-  } = theme.useToken();
-
   const getSelectedKey = () => {
     const path = location.pathname;
     if (path.includes('/keys')) return 'keys';
@@ -36,14 +32,27 @@ const Sidebar = () => {
     { key: 'about', icon: <InfoCircleOutlined />, label: <Link to="/about">{t('sidebar.about')}</Link> },
   ];
 
+  const siderStyle = {
+    background: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+    backdropFilter: 'blur(12px)',
+    borderRight: isDark ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid rgba(0, 0, 0, 0.1)',
+    boxShadow: isDark 
+      ? '2px 0 8px rgba(0, 0, 0, 0.4)' 
+      : '2px 0 8px rgba(0, 0, 0, 0.05)',
+  };
+
+  const menuStyle = {
+    height: '100%',
+    borderRight: 0,
+    background: 'transparent',
+  };
+
   return (
-    <AntSider width={200} style={{
-      background: colorBgContainer,
-    }}>
+    <AntSider width={200} style={siderStyle}>
       <Menu
         mode="inline"
         selectedKeys={[getSelectedKey()]}
-        style={{ height: '100%', borderRight: 0 }}
+        style={menuStyle}
         items={menuItems}
         theme={isDark ? 'dark' : 'light'}
       />

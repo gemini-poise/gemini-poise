@@ -36,7 +36,7 @@ const ConfigPage = () => {
     <App>
       <Watermark content={t('config.watermarkText')}>
         <div className="flex justify-center">
-          <Card className="w-full max-w-xl" hoverable>
+          <Card className="w-full max-w-3xl" hoverable>
             <Title level={2} className="text-center">{t('config.title')}</Title>
             <Form
               form={form}

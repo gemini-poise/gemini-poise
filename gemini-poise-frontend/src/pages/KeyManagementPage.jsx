@@ -144,7 +144,7 @@ const KeyManagementPage = () => {
   return (
     <App>
       <div className="p-4">
-        <Title level={2} className="text-center">{t('apiKeys.title')}</Title>
+        {/*<Title level={2} className="text-center">{t('apiKeys.title')}</Title>*/}
 
         {/* 缓存管理面板 */}
         <Collapse
