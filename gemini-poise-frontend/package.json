@@ -12,14 +12,14 @@
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
-    "@tailwindcss/vite": "^4.1.12",
-    "antd": "^5.27.2",
+    "@tailwindcss/vite": "^4.1.13",
+    "antd": "^5.27.3",
     "axios": "^1.11.0",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.18",
-    "i18next": "^25.4.2",
+    "i18next": "^25.5.2",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-http-backend": "^3.0.2",
     "react": "^19.1.1",
@@ -28,20 +28,20 @@
     "react-dom": "^19.1.1",
     "react-i18next": "^15.7.3",
     "react-router": "^7.8.2",
-    "tailwindcss": "^4.1.12"
+    "tailwindcss": "^4.1.13"
   },
   "devDependencies": {
-    "@eslint/js": "^9.34.0",
-    "@types/node": "^22.18.0",
+    "@eslint/js": "^9.35.0",
+    "@types/node": "^22.18.1",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
-    "eslint": "^9.34.0",
+    "eslint": "^9.35.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
+    "globals": "^16.4.0",
     "postcss": "^8.5.6",
-    "vite": "^7.1.4"
+    "vite": "^7.1.5"
   }
 }
