@@ -356,7 +356,12 @@ export const useKeyManagement = (form, bulkAddForm, t) => {
       if (response.data.status === 'valid') {
         message.success(t('apiKeys.keyIsValid'));
       } else {
-        message.error(t('apiKeys.keyIsInvalid', { message: response.data.message }));
+        // 如果是国际化键，则翻译；否则直接使用
+        const errorMessage = response.data.message;
+        const translatedMessage = errorMessage && errorMessage.startsWith('apiKeys.validation.')
+          ? t(errorMessage)
+          : errorMessage;
+        message.error(t('apiKeys.keyIsInvalid', { message: translatedMessage }));
       }
       await fetchKeys(pagination.current, pagination.pageSize, {
         search_key: searchKey,
